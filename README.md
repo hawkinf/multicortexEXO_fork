@@ -9,7 +9,6 @@ Fork independente de [`cabelo/multicortex-exo`](https://github.com/cabelo/multic
 ## Índice
 
 - [O que é e por que usar](#o-que-é-e-por-que-usar)
-- [Como a ISO funciona — do boot ao modelo rodando](#como-a-iso-funciona--do-boot-ao-modelo-rodando)
 - [Diferenças em relação a um Linux normal](#diferenças-em-relação-a-um-linux-normal)
 - [Programas incluídos e para que servem](#programas-incluídos-e-para-que-servem)
 - [Versão e release](#versão-e-release)
@@ -28,7 +27,12 @@ Fork independente de [`cabelo/multicortex-exo`](https://github.com/cabelo/multic
 - [Serviços systemd — o que faz cada um](#serviços-systemd--o-que-faz-cada-um)
 - [Overlay root — arquivos copiados na ISO](#overlay-root--arquivos-copiados-na-iso)
 - [Credenciais padrão](#credenciais-padrão)
-- [Como compilar a ISO](#como-compilar-a-iso)
+- [Walkthrough completo: do comando à ISO rodando](#walkthrough-completo-do-comando-à-iso-rodando)
+  - [Visão geral do fluxo](#visão-geral-do-fluxo)
+  - [Parte 1 — Execução do script Python](#parte-1--execução-do-script-python)
+  - [Parte 2 — O que o KIWI NG faz internamente](#parte-2--o-que-o-kiwi-ng-faz-internamente)
+  - [Parte 3 — Do pendrive ao modelo respondendo](#parte-3--do-pendrive-ao-modelo-respondendo)
+- [Como compilar a ISO — referência rápida](#como-compilar-a-iso--referência-rápida)
 - [Como testar a ISO](#como-testar-a-iso)
 - [Como gravar em pendrive](#como-gravar-em-pendrive)
 - [Comandos disponíveis na ISO](#comandos-disponíveis-na-iso)
@@ -61,80 +65,27 @@ Você inicializa o computador pela ISO — seja em pendrive, VM ou rede — e o 
 
 ---
 
-## Como a ISO funciona — do boot ao modelo rodando
-
-Entender o fluxo completo ajuda a saber onde mexer quando algo não funciona.
-
-### 1. Boot — o que acontece antes do desktop aparecer
-
-A ISO é uma imagem híbrida: funciona tanto em UEFI moderno quanto em BIOS legacy. O arquivo ISO contém dois bootloaders gravados em regiões específicas — GRUB2 para UEFI e SYSLINUX para BIOS. Quando você inicializa, o firmware do computador detecta o modo correto automaticamente.
-
-O GRUB2 carrega o kernel (`kernel-default`) e o initramfs (imagem inicial compacta de sistema de arquivos). O Plymouth exibe o splash screen com o tema "studio" enquanto isso acontece. O kernel recebe o parâmetro `splash` que mantém esse visual até o desktop aparecer.
-
-### 2. Montagem do sistema de arquivos em camadas (overlay)
-
-Este é o mecanismo central que faz a ISO funcionar como Live. O sistema não está instalado num disco — ele vive comprimido dentro da ISO num formato chamado **SquashFS**, uma imagem somente-leitura.
-
-O `dracut-kiwi-live` monta esse SquashFS e cria por cima uma **camada de escrita em RAM** (ou em ext4 no pendrive, se houver espaço). Esse sistema de camadas se chama overlay. Qualquer arquivo que você crie ou modifique vai para a camada de escrita — o SquashFS original nunca é tocado.
-
-Resultado: a ISO é imutável, mas o sistema em execução se comporta como um Linux normal onde você pode criar arquivos, instalar pacotes, baixar modelos. Com persistência ativada (pendrive com espaço livre), essas mudanças sobrevivem ao reinício.
-
-### 3. systemd sobe os serviços
-
-Com o sistema de arquivos montado, o systemd inicia os serviços pela ordem de dependências:
-
-- `multicortex-firstboot.service` é um dos primeiros — cria `/var/lib/ollama` e `/var/log/multicortex` com permissão 755, garantindo que os diretórios existam antes do Ollama tentar usá-los
-- `ollama.service` inicia o servidor Ollama, que fica escutando em `127.0.0.1:11434`
-- `sshd.service` inicia, permitindo acesso remoto pela porta 22
-- `gdm.service` inicia o GDM (gerenciador de display)
-
-### 4. Login automático e desktop
-
-O GDM está configurado para fazer autologin do usuário `tux` sem pedir senha. O GNOME carrega com o wallpaper da distro e dois atalhos na área de trabalho.
-
-### 5. Autostart — o que executa no primeiro segundo do desktop
-
-Assim que o GNOME termina de carregar, dois processos de autostart disparam:
-
-**`init.desktop`** — chama `/usr/bin/initMulticortex.sh` em um terminal. Esse script exibe o logo ASCII do MultiCortex (lido de `/etc/multicortex.asc`) e em seguida executa `ollama run llama3.2 "Ola!"`. Se o modelo `llama3.2` não estiver instalado, o Ollama tenta baixá-lo (requer internet) ou falha com mensagem de erro.
-
-**`config.desktop`** — chama `/usr/bin/config_osviacam.sh`, que configura a aparência do GNOME via `gsettings`: define os apps favoritos da dock (Firefox, Terminal, Chat), fonte monoespaçada, tema Dark e wallpaper. Ao terminar, se deleta do autostart — executa apenas uma vez.
-
-### 6. Sistema pronto
-
-Neste ponto o sistema está operacional:
-
-- Terminal com aliases `mc-status`, `mc-menu`, `mc-models`
-- Ollama respondendo em `http://127.0.0.1:11434`
-- Atalho `Chat` na dock do GNOME abrindo Firefox em `localhost:7001`
-- Variável `OLLAMA_HOST` exportada para todos os shells
-- SSH disponível na porta 22
-
----
-
 ## Diferenças em relação a um Linux normal
 
-Uma ISO genérica do openSUSE Leap 15.6 é uma distribuição de propósito geral. Você baixa, instala, e depois passa horas configurando o que precisa. O multicortexEXO parte do mesmo base, mas é uma **distribuição de propósito específico** — foi montada para IA local já funcionar no boot.
-
-### O que muda concretamente
+Uma ISO genérica do openSUSE Leap 15.6 é uma distribuição de propósito geral. Você baixa, instala, e depois passa horas configurando. O multicortexEXO parte da mesma base, mas é uma **distribuição de propósito específico** — montada para IA local já funcionar no boot.
 
 | Aspecto | openSUSE Leap 15.6 padrão | multicortexEXO |
 |---------|--------------------------|----------------|
-| **Modo de uso** | Instalação em disco | Live ISO + overlay (opcional persistência) |
+| **Modo de uso** | Instalação em disco | Live ISO + overlay (persistência opcional) |
 | **Ollama** | Não incluso | Instalado, configurado, habilitado no boot |
 | **API de IA** | Não existe | `http://127.0.0.1:11434` disponível no boot |
-| **Drivers NVIDIA** | Requer configuração manual | G06 incluídos no build |
-| **Python** | 3.6 (padrão do Leap 15.6) | 3.12 + pip + setuptools adicionados |
+| **Drivers NVIDIA** | Configuração manual | G06 incluídos no build |
+| **Python** | 3.6 (padrão do Leap 15.6) | 3.12 + pip + setuptools |
 | **Node.js** | Não incluso | 20 + npm incluídos |
-| **Ferramentas de build IA** | Não inclusas | OpenCV, OpenCL, TBB, protobuf, nlohmann_json, libva já instalados |
+| **Libs de build IA** | Não inclusas | OpenCV, OpenCL, TBB, protobuf, nlohmann_json, libva |
 | **Comandos de controle** | Nenhum | `multicortex-status`, `multicortex-menu`, perfis de modelos |
 | **Login automático** | Requer senha | Autologin do usuário `tux` |
 | **Repositório JAX** | Não configurado | Pré-configurado dentro da ISO |
 | **Ambiente pronto** | Após instalação e configuração | No boot |
 
-### O que o overlay adiciona que o Live normal não tem
+### O overlay persistente
 
-Um Live CD genérico descarta tudo ao reiniciar. O multicortexEXO usa **overlay persistente em ext4** — se gravado em pendrive com espaço livre, os modelos baixados, arquivos criados e pacotes instalados sobrevivem ao reinício. Isso transforma o pendrive numa estação de trabalho portátil completa: pluga em qualquer PC x86_64, e você tem seu ambiente de IA exatamente como deixou.
+Um Live CD genérico descarta tudo ao reiniciar. O multicortexEXO usa **overlay persistente em ext4** — se gravado em pendrive com espaço livre, os modelos baixados, arquivos criados e pacotes instalados sobrevivem ao reinício. Isso transforma o pendrive numa estação de trabalho portátil completa: pluga em qualquer PC x86_64 e você tem seu ambiente de IA exatamente como deixou.
 
 ---
 
@@ -142,47 +93,47 @@ Um Live CD genérico descarta tudo ao reiniciar. O multicortexEXO usa **overlay 
 
 ### Infraestrutura de IA
 
-**Ollama** — o motor central de toda a IA local. Gerencia download, carregamento em memória e execução de modelos LLM. Expõe uma API REST compatível com OpenAI em `127.0.0.1:11434`. Sem o Ollama nada funciona. Iniciado como serviço systemd no boot.
+**Ollama** — motor central. Gerencia download, carregamento em memória e execução de modelos LLM. Expõe API REST compatível com OpenAI em `127.0.0.1:11434`. Iniciado como serviço systemd no boot.
 
-**Firefox** → `localhost:7001` — atalho na dock que abre o browser apontado para a porta onde uma interface web de chat pode estar rodando (Open WebUI ou similar). A interface em si precisa ser instalada separadamente.
+**Firefox** — browser. Atalho na dock aponta para `localhost:7001` (interface web de chat local).
 
 ### Ambiente de desenvolvimento
 
-**Python 3.12** (`python312`, `python312-pip`, `python312-setuptools`, `python312-base`) — a versão mais recente disponível no Leap 15.6. O openSUSE Leap vem com Python 3.6 como padrão; o 3.12 foi explicitamente adicionado porque a maioria das bibliotecas modernas de IA (LangChain, transformers, etc.) requer Python ≥ 3.9. `pip` e `setuptools` incluídos para poder instalar qualquer pacote Python sem configuração adicional.
+**Python 3.12** (`python312`, `python312-pip`, `python312-setuptools`, `python312-base`) — o Leap 15.6 vem com Python 3.6 por padrão. O 3.12 foi adicionado explicitamente porque a maioria das bibliotecas modernas de IA (LangChain, transformers, etc.) requer Python ≥ 3.9.
 
-**Python 3.x base** (`python3-base`, `python3-devel`, `python3-pip`) — versão de compatibilidade mantida para ferramentas do sistema que dependem do Python padrão do openSUSE.
+**Python 3.x base** (`python3-base`, `python3-devel`, `python3-pip`) — versão de compatibilidade para ferramentas do sistema.
 
-**Node.js 20 + npm** (`nodejs20`, `npm20`, `nodejs-common`) — runtime JavaScript necessário para Open WebUI e outras interfaces web de chat baseadas em Next.js ou similar.
+**Node.js 20 + npm** (`nodejs20`, `npm20`, `nodejs-common`) — runtime necessário para Open WebUI e outras interfaces web de chat.
 
-**gcc / g++** (`gcc`, `gcc-c++`) — compiladores C e C++ para compilar extensões nativas de Python, bibliotecas de IA com código C++ (como llama.cpp) e qualquer código customizado.
+**gcc / g++** (`gcc`, `gcc-c++`) — compiladores C/C++ para extensões nativas de Python, llama.cpp e código customizado.
 
-**cmake / make / ninja / scons** (`cmake`, `make`, `ninja`, `scons`) — sistemas de build. cmake é usado pelo OpenCV e llama.cpp. ninja é o backend rápido do cmake. scons é alternativa usada por alguns projetos OpenVINO.
+**cmake / make / ninja / scons** (`cmake`, `make`, `ninja`, `scons`) — sistemas de build. cmake é usado pelo OpenCV e llama.cpp. ninja é o backend rápido do cmake.
 
-**git / git-lfs** (`git`, `git-lfs`) — controle de versão. git-lfs (Large File Storage) necessário para clonar repositórios de modelos do Hugging Face que armazenam pesos em arquivos grandes.
+**git / git-lfs** (`git`, `git-lfs`) — controle de versão. git-lfs necessário para repositórios do Hugging Face que armazenam pesos de modelos em arquivos grandes.
 
-**pkg-config** — utilitário para localizar bibliotecas de desenvolvimento durante compilação.
+**pkg-config** — localiza bibliotecas de desenvolvimento durante compilação.
 
 ### Bibliotecas de computação e visão
 
-**OpenCV** (`opencv-devel`) — biblioteca de visão computacional. Necessária para processamento de imagem, vídeo e para modelos multimodais que trabalham com imagens junto com texto.
+**OpenCV** (`opencv-devel`) — visão computacional. Necessária para processamento de imagem, vídeo e modelos multimodais.
 
-**OpenCL** (`opencl-headers`, `opencl-cpp-headers`, `ocl-icd-devel`) — interface para computação paralela em GPU. Permite que modelos usem a GPU via OpenCL quando CUDA não está disponível ou não é necessário.
+**OpenCL** (`opencl-headers`, `opencl-cpp-headers`, `ocl-icd-devel`) — computação paralela em GPU via OpenCL quando CUDA não está disponível.
 
-**Intel VA-API** (`libva-devel`, `vaapi-intel-driver`) — aceleração de vídeo por hardware Intel. Útil para decodificação eficiente de vídeo em modelos multimodais.
+**Intel VA-API** (`libva-devel`, `vaapi-intel-driver`) — aceleração de vídeo por hardware Intel.
 
-**TBB** (`tbb-devel`) — Intel Threading Building Blocks. Biblioteca de paralelismo em CPU usada pelo OpenCV e por vários frameworks de IA para otimizar execução em múltiplos cores.
+**TBB** (`tbb-devel`) — Intel Threading Building Blocks. Paralelismo em CPU usado pelo OpenCV e frameworks de IA.
 
-**libVDPAU** (`libvdpau_nouveau`) — aceleração de vídeo por hardware via VDPAU, usado por GPUs NVIDIA/Nouveau.
+**libVDPAU** (`libvdpau_nouveau`) — aceleração de vídeo via VDPAU para GPUs NVIDIA/Nouveau.
 
-**protobuf** (`protobuf-devel`) — serialização de dados usada pelo TensorFlow, ONNX e outros frameworks de IA para salvar e carregar modelos.
+**protobuf** (`protobuf-devel`) — serialização de dados usada pelo TensorFlow, ONNX e outros frameworks.
 
-**nlohmann/json** (`nlohmann_json-devel`) — biblioteca header-only de JSON para C++. Usada por llama.cpp e outros projetos nativos.
+**nlohmann/json** (`nlohmann_json-devel`) — biblioteca header-only de JSON para C++. Usada por llama.cpp.
 
 **snappy** (`snappy-devel`) — compressão rápida usada pelo TensorFlow e RocksDB.
 
 **zlib** (`zlib-devel`) — compressão base, necessária para dezenas de bibliotecas.
 
-**gflags** (`gflags-devel-static`) — biblioteca de flags de linha de comando para C++, usada por projetos como Caffe e alguns backends do TensorFlow.
+**gflags** (`gflags-devel-static`) — flags de linha de comando para C++, usada por Caffe e backends do TensorFlow.
 
 **pugixml** (`pugixml-devel`) — parser XML leve para C++, usado pelo OpenVINO.
 
@@ -190,89 +141,73 @@ Um Live CD genérico descarta tudo ao reiniciar. O multicortexEXO usa **overlay 
 
 ### Suporte a NVIDIA (GPU)
 
-**`nvidia-drivers-insync-latest`** — meta-pacote que instala o driver NVIDIA mais recente sincronizado com o kernel. Ponto de entrada principal.
+**`nvidia-drivers-insync-latest`** — meta-pacote que instala o driver NVIDIA mais recente sincronizado com o kernel.
 
-**`nvidia-common-G06`** — arquivos comuns compartilhados entre todos os componentes do driver G06.
+**`nvidia-common-G06`** — arquivos comuns compartilhados entre os componentes do driver G06.
 
-**`nvidia-compute-G06`** — bibliotecas CUDA para computação em GPU. Necessário para que o Ollama use a GPU NVIDIA para inferência.
+**`nvidia-compute-G06`** — bibliotecas CUDA para computação em GPU. Necessário para o Ollama usar a GPU para inferência.
 
-**`nvidia-compute-utils-G06`** — utilitários de computação: `nvidia-persistenced` (mantém o driver carregado) e ferramentas auxiliares.
+**`nvidia-compute-utils-G06`** — `nvidia-persistenced` e ferramentas auxiliares de computação.
 
-**`nvidia-utils-G06`** — `nvidia-smi` e outros utilitários de monitoramento da GPU. O `multicortex-status` chama `nvidia-smi` para exibir temperatura, uso de memória VRAM e outros dados.
+**`nvidia-utils-G06`** — `nvidia-smi` e utilitários de monitoramento. O `multicortex-status` chama `nvidia-smi` para exibir temperatura e uso de VRAM.
 
-**`nvidia-driver-G06-kmp-default`** — módulo do kernel NVIDIA compilado para o `kernel-default` do openSUSE. É o arquivo `.ko` que o kernel carrega para ter acesso à GPU.
+**`nvidia-driver-G06-kmp-default`** — módulo do kernel NVIDIA (`.ko`) compilado para o `kernel-default` do openSUSE.
 
-**`ucode-intel`** — microcódigo para processadores Intel. Corrige bugs de hardware via firmware sem precisar de BIOS update.
+**`ucode-intel`** — microcódigo para processadores Intel. Corrige bugs de hardware via firmware.
 
-**`libdrm_intel1` / `libdrm_nouveau2`** — bibliotecas DRM (Direct Rendering Manager) para Intel e Nouveau. Permitem renderização acelerada mesmo sem driver NVIDIA proprietário.
+**`libdrm_intel1` / `libdrm_nouveau2`** — bibliotecas DRM para Intel e Nouveau. Renderização acelerada mesmo sem driver NVIDIA proprietário.
 
-**`xf86-video-intel`** — driver Xorg para Intel HD/UHD Graphics. Necessário para exibição gráfica em sistemas com Intel integrado.
+**`xf86-video-intel`** — driver Xorg para Intel HD/UHD Graphics.
 
 ### Ferramentas de qualidade de código
 
-**ShellCheck** (`ShellCheck`) — analisador estático de scripts Shell. Detecta erros comuns, variáveis não declaradas, quoting incorreto. Usado nos scripts de build para validação automática.
+**ShellCheck** — analisador estático de scripts Shell. Detecta erros comuns e quoting incorreto.
 
-**ccache** (`ccache`) — cache de compilação. Armazena resultados de compilações anteriores. Reduz drasticamente o tempo de recompilação de projetos C/C++ como OpenCV ou llama.cpp.
+**ccache** — cache de compilação. Reduz drasticamente recompilações de projetos C/C++ como OpenCV ou llama.cpp.
 
-**patchelf** (`patchelf`) — modifica binários ELF para ajustar caminhos de biblioteca (`RPATH`). Necessário para redistribuir binários compilados que precisam encontrar libs em locais não-padrão.
+**patchelf** — modifica binários ELF para ajustar caminhos de biblioteca (`RPATH`). Necessário para redistribuir binários compilados.
 
-**fdupes** (`fdupes`) — encontra e remove arquivos duplicados. Útil para manter o overlay limpo.
+**fdupes** — encontra e remove arquivos duplicados.
 
 ### Ambiente gráfico
 
-**GNOME** (via `patterns-gnome-*`) — ambiente desktop completo. O padrão `patterns-gnome-gnome_basis` puxa o núcleo do GNOME. `gnome_internet` adiciona Firefox e ferramentas de rede. `gnome_utilities` adiciona calculadora, monitor de sistema, etc. `gnome_imaging` adiciona Cheese (câmera) e ferramentas de imagem.
+**GNOME** (via `patterns-gnome-*`) — desktop completo. `gnome_basis` é o núcleo; `gnome_internet` adiciona Firefox; `gnome_utilities` adiciona calculadora e monitor; `gnome_imaging` adiciona Cheese.
 
-**GDM** — gerenciador de display. Configurado com autologin do `tux` para que o desktop apareça sem interação do usuário.
+**GDM** — gerenciador de display com autologin do `tux`.
 
-**GNOME Terminal** (`gnome-terminal`) — terminal emulador. É onde os comandos `multicortex-*` são executados.
+**GNOME Terminal** — onde os comandos `multicortex-*` são executados.
 
-**Cheese** (`cheese`) — aplicativo de câmera. Herdado do projeto original (que tinha foco em visão computacional com câmera). Permite usar câmera diretamente no ambiente.
+**Cheese** — câmera. Herdado do projeto original com foco em visão computacional.
 
-**Firefox** (`MozillaFirefox`) — browser. Usado como interface para acessar o chat web local (`localhost:7001`) e outros serviços locais.
+**NetworkManager** (`NetworkManager-gnome`) — gerenciamento de rede com GUI.
 
-**NetworkManager** (`NetworkManager-gnome`) — gerenciamento de rede com interface gráfica. Permite configurar Wi-Fi e redes cabeadas via GUI sem precisar editar arquivos de configuração.
-
-**wpa_supplicant-gui** — interface gráfica para redes Wi-Fi protegidas.
-
-**YaST2** (`yast2-control-center-gnome`, `yast2-x11`) — painel de controle do openSUSE. Permite configurar o sistema graficamente: adicionar usuários, gerenciar partições, configurar firewall, etc.
+**YaST2** (`yast2-control-center-gnome`, `yast2-x11`) — painel de controle do openSUSE para configuração gráfica do sistema.
 
 ### Sistema e bootloader
 
-**kernel-default** — kernel Linux padrão do openSUSE. Compilado com módulos para a grande maioria dos hardwares.
+**kernel-default** — kernel Linux padrão do openSUSE com módulos para a maioria dos hardwares.
 
-**kernel-firmware** — firmwares de hardware: adaptadores Wi-Fi, placas de som, controladores de armazenamento. Sem isso, vários dispositivos não funcionam.
+**kernel-firmware** — firmwares de hardware: Wi-Fi, áudio, controladores de armazenamento.
 
-**Firmwares específicos** (`atmel-firmware`, `adaptec-firmware`, `bluez-firmware`, `alsa-firmware`, `ipw-firmware`, `mpt-firmware`) — firmwares para chipsets específicos de Wi-Fi (Atmel, Intel IPW), controladores RAID (Adaptec, MPT), Bluetooth (BlueZ) e áudio (ALSA).
+**Firmwares específicos** (`atmel-firmware`, `adaptec-firmware`, `bluez-firmware`, `alsa-firmware`, `ipw-firmware`, `mpt-firmware`) — chipsets específicos de Wi-Fi, RAID, Bluetooth e áudio.
 
-**GRUB2** + **shim** + **grub2-x86_64-efi** — bootloader para UEFI. O `shim` é necessário para funcionar com Secure Boot desligado em sistemas UEFI modernos. `grub2-x86_64-efi` é o arquivo EFI que o firmware carrega.
+**GRUB2 + shim + grub2-x86_64-efi** — bootloader UEFI. O `shim` é necessário para UEFI moderno.
 
-**syslinux** — bootloader para BIOS legacy. Faz a ISO funcionar em PCs mais antigos.
+**syslinux** — bootloader BIOS legacy.
 
-**Plymouth** + tema studio — splash screen animado durante o boot.
+**Plymouth + tema studio** — splash screen animado durante o boot.
 
-**dracut-kiwi-live** — componente que monta o SquashFS como overlay no boot Live. Essencial para o funcionamento da ISO.
+**dracut-kiwi-live** — monta o SquashFS como overlay no boot Live. Essencial.
 
-**dracut-kiwi-oem-repart** / **dracut-kiwi-oem-dump** — para builds OEM (instalação em disco). Não usados no modo Live.
+**openssh** — SSH para acesso remoto.
 
-**openssh** — servidor SSH. Permite acesso remoto ao sistema via terminal.
+**iproute2** — ferramentas de rede (`ip`, `ss`). Usadas pelo `multicortex-status`.
 
-**iproute2** — ferramentas modernas de rede (`ip`, `ss`). Usadas pelo `multicortex-status` para listar IPs.
+**dhcp-client** — DHCP automático.
 
-**dhcp-client** — cliente DHCP para obter IP automaticamente na rede.
+**lvm2** / **e2fsprogs** — LVM e ferramentas ext4. Necessários para a partição de persistência.
 
-**lvm2** — gerenciador de volumes lógicos. Necessário para sistemas com LVM.
-
-**e2fsprogs** — ferramentas para sistema de arquivos ext2/3/4. Necessário para criar e verificar a partição de persistência.
-
-**jeos-firstboot** — assistente de primeira inicialização do JeOS (Just Enough OS). Pode aparecer na primeira inicialização para configurações básicas.
-
-**vim** — editor de texto via terminal.
-
-**bash-completion** — auto-completar de comandos no bash.
-
-**less** / **tar** / **which** / **parted** — utilitários básicos do sistema.
-
-**zypper** — gerenciador de pacotes do openSUSE. Permite instalar pacotes adicionais dentro da ISO com persistência.
+**zypper** — gerenciador de pacotes. Permite instalar pacotes adicionais dentro da ISO com persistência ativa.
 
 ---
 
@@ -394,31 +329,27 @@ multicortexEXO_fork/
 
 **Localização:** `scripts/system/multicortex-status.sh` (cópia idêntica em `suse/.../root/opt/multicortex/scripts/system/`)
 
-**Chamado por:** comando `multicortex-status` (ou alias `mc-status`) no terminal da ISO
+**Chamado por:** comando `multicortex-status` ou alias `mc-status`
 
-**O que faz, linha a linha:**
+O script define `set -Eeuo pipefail` — qualquer erro não tratado aborta. `OLLAMA_BASE_URL` usa `$OLLAMA_HOST` se definido, senão `http://127.0.0.1:11434`. A função `section()` imprime títulos em azul ciano (`\033[1;36m`). A função `cmd_or_na()` executa um comando e imprime `N/A` se falhar, sem abortar.
 
-O script define `set -Eeuo pipefail` — qualquer erro não tratado aborta a execução. A variável `OLLAMA_BASE_URL` usa o valor de `$OLLAMA_HOST` se definido, senão `http://127.0.0.1:11434`.
+**Seção Versão:** lê `/etc/multicortex-version` ou `./VERSION`.
 
-A função `section()` imprime um título formatado em azul ciano (`\033[1;36m`). A função `cmd_or_na()` executa um comando e imprime `N/A` se falhar, sem abortar o script.
+**Seção Sistema:** exibe `hostname`, `uname -r`, `uname -m`. Filtra `PRETTY_NAME` e `VERSION_ID` do `/etc/os-release`.
 
-**Seção Versão:** lê `/etc/multicortex-version` se existir, senão tenta `./VERSION`. Exibe a string de versão da ISO.
+**Seção Rede:** `ip -4 addr show scope global` lista IPs globais (não loopback), formatados com `awk`. Imprime URLs prováveis de todos os serviços.
 
-**Seção Sistema:** exibe `hostname`, `uname -r` (versão do kernel), `uname -m` (arquitetura). Lê `/etc/os-release` e filtra `PRETTY_NAME` e `VERSION_ID`.
+**Seção Serviços:** itera sobre `ollama.service`, `multicortex-chat-ui.service`, `open-webui.service` e chama `systemctl is-active` para cada um.
 
-**Seção Rede:** usa `ip -4 addr show scope global` para listar apenas IPs com escopo global (não loopback). Formata com `awk` para mostrar IP/máscara e nome da interface. Imprime as URLs prováveis de todos os serviços (Ollama API, tags endpoint, Web UI, Open WebUI).
+**Seção Ollama API:** `curl -fsS http://127.0.0.1:11434/api/tags` salvo em `/tmp/multicortex-tags.json`. Se responder, lista modelos com `jq -r '.models[]?.name'` ou imprime JSON bruto se `jq` não estiver disponível.
 
-**Seção Serviços:** itera sobre `ollama.service`, `multicortex-chat-ui.service`, `open-webui.service` e chama `systemctl is-active` para cada um. Exibe `active`, `inactive` ou `failed`.
+**Seção Modelos:** `ollama list` diretamente (formato tabular).
 
-**Seção Ollama API:** chama `curl -fsS http://127.0.0.1:11434/api/tags` e salva em `/tmp/multicortex-tags.json`. Se a chamada funcionar, imprime "OK" e lista os modelos usando `jq -r '.models[]?.name'`. Se `jq` não estiver disponível, imprime o JSON bruto.
+**Seção Hardware:** `lscpu | awk` para o model name da CPU; `free -h` para RAM; `df -h /` para disco; `nvidia-smi` se disponível — exibe temperatura, VRAM e processos.
 
-**Seção Modelos via ollama list:** executa `ollama list` diretamente (formato tabular diferente do JSON da API).
+**Seção Logs:** `journalctl -u ollama.service -n 20 --no-pager`.
 
-**Seção Hardware:** usa `lscpu | awk` para extrair o campo "Model name" do processador. Executa `free -h` (uso de RAM) e `df -h /` (espaço em disco na raiz). Verifica se `nvidia-smi` existe: se sim, executa e exibe a saída completa (temperatura, uso de VRAM, processos usando GPU).
-
-**Seção Logs recentes:** `journalctl -u ollama.service -n 20 --no-pager` — últimas 20 linhas do log do Ollama.
-
-Todas as seções usam `|| true` nos comandos opcionais para não abortar se uma ferramenta não estiver disponível.
+Todos os comandos opcionais usam `|| true` para não abortar em ambientes sem todas as ferramentas.
 
 ---
 
@@ -426,41 +357,28 @@ Todas as seções usam `|| true` nos comandos opcionais para não abortar se uma
 
 **Localização:** `scripts/system/multicortex-menu.sh` (cópia em `root/opt/multicortex/scripts/system/`)
 
-**Chamado por:** comando `multicortex-menu` (ou alias `mc-menu`)
+**Chamado por:** comando `multicortex-menu` ou alias `mc-menu`
 
-**O que faz:**
+Loop `while true` com `clear` antes de cada iteração. Menu exibido via heredoc `cat <<'MENU'`. O `read` aguarda opção.
 
-Loop `while true` com `clear` antes de cada iteração — a tela é sempre limpa antes de mostrar o menu. O menu é exibido via `cat <<'MENU'` (heredoc). O `read` aguarda o usuário digitar uma opção.
+**Função `run()`:** imprime `>>> comando`, executa, depois `read -r -p "Enter para voltar..."` — pausa antes de limpar a tela para o resultado não desaparecer imediatamente.
 
-**Função `run()`:** recebe um comando como argumento, imprime `>>> comando` e executa. Depois do comando terminar, exibe `read -r -p "Enter para voltar..."` para pausar antes de limpar a tela. Isso evita que a saída de um comando desapareça imediatamente.
+**Função `service_cmd()`:** tenta `sudo systemctl action svc`; se falhar, tenta sem sudo. Usa `|| true` para não abortar.
 
-**Função `service_cmd()`:** recebe `action` (start/stop/restart) e `svc` (nome do serviço). Tenta `sudo systemctl action svc` primeiro; se falhar (ex: sudo não disponível), tenta `systemctl action svc` sem sudo. Usa `|| true` para não abortar se ambos falharem.
+**Função `show_urls()`:** imprime URLs hardcoded (11434, 3000, 8080) e IPs reais via `ip -4 addr show scope global`.
 
-**Função `show_urls()`:** imprime as URLs hardcoded de todos os serviços (11434, 3000, 8080) e lista os IPs reais da máquina via `ip -4 addr show scope global`.
-
-**Função `test_api()`:** executa `curl -fsS http://127.0.0.1:11434/api/tags` e imprime o resultado JSON bruto. Rápido para verificar se o Ollama está respondendo sem precisar sair do menu.
-
-**Mapeamento de opções:**
+**Função `test_api()`:** `curl -fsS http://127.0.0.1:11434/api/tags` — JSON bruto para diagnóstico rápido.
 
 | Opção | Execução real |
 |-------|--------------|
 | 1 | `run multicortex-status` |
-| 2 | `service_cmd start ollama.service` |
-| 3 | `service_cmd stop ollama.service` |
-| 4 | `service_cmd restart ollama.service` |
-| 5 | `service_cmd start multicortex-chat-ui.service` + `service_cmd start open-webui.service` |
-| 6 | stop em ambos os serviços de UI |
-| 7 | restart em ambos os serviços de UI |
+| 2 / 3 / 4 | start / stop / restart `ollama.service` |
+| 5 / 6 / 7 | start / stop / restart `multicortex-chat-ui` + `open-webui` |
 | 8 | `run multicortex-models-list` |
-| 9 | `run multicortex-models-light` |
-| 10 | `run multicortex-models-medium` |
-| 11 | `run multicortex-models-code` |
-| 12 | `run multicortex-models-large` |
-| 13 | `run test_api` (curl no Ollama) |
+| 9 / 10 / 11 / 12 | instalar modelos light / medium / code / large |
+| 13 | `run test_api` |
 | 14 | `run show_urls` |
 | 15 | `exit 0` |
-
-Opção inválida: imprime "Opção inválida." e aguarda 1 segundo antes de redesenhar o menu.
 
 ---
 
@@ -470,21 +388,13 @@ Opção inválida: imprime "Opção inválida." e aguarda 1 segundo antes de red
 
 **Chamado por:** `init.desktop` no autostart do GNOME do usuário `tux`
 
-**O que faz:**
-
 ```bash
-cat /etc/multicortex.asc   # exibe logo ASCII do MultiCortex
-echo " "
+cat /etc/multicortex.asc   # exibe logo ASCII (arquivo não está no overlay — pendência)
 echo "Initializing..."
-echo " "
 ollama run llama3.2 "Ola!"
 ```
 
-Esse é o script que dispara no login gráfico. O arquivo `/etc/multicortex.asc` não está no overlay — é um arquivo que deveria estar na ISO mas não foi adicionado ainda. Se não existir, `cat` retorna erro mas o script continua.
-
-A linha `ollama run llama3.2 "Ola!"` envia a mensagem "Ola!" para o modelo `llama3.2`. Se o modelo não estiver instalado, o Ollama tenta baixá-lo (requer internet). Se não houver internet e o modelo não estiver no disco, falha com erro.
-
-O terminal onde isso roda fica aberto — o usuário pode continuar usando o Ollama interativamente após a mensagem inicial.
+Dispara no login gráfico. Se `llama3.2` não estiver instalado, o Ollama tenta baixar da internet ou falha. O terminal fica aberto para uso interativo.
 
 ---
 
@@ -492,27 +402,17 @@ O terminal onde isso roda fica aberto — o usuário pode continuar usando o Oll
 
 **Localização:** `suse/.../root/usr/bin/config_osviacam.sh`
 
-**Chamado por:** `config.desktop` no autostart do GNOME (executa apenas uma vez)
-
-**O que faz:**
+**Chamado por:** `config.desktop` no autostart (executa apenas uma vez)
 
 ```bash
 gsettings set org.gnome.shell favorite-apps "['firefox.desktop', 'org.gnome.Terminal.desktop','Chat.desktop']"
 gsettings set org.gnome.desktop.interface monospace-font-name 'Monospace 12'
 gsettings set org.gnome.desktop.interface gtk-theme Dark
 gsettings set org.gnome.desktop.background picture-uri "file:////usr/share/wallpapers/studio_wallpaper.jpg"
-
 rm /home/tux/.config/autostart/config.desktop
 ```
 
-Configura a aparência do GNOME para o usuário `tux` via `gsettings`:
-
-- **Dock (favorites):** define os três apps na dock do GNOME — Firefox, Terminal e Chat (o atalho para localhost:7001)
-- **Fonte monoespaçada:** Monospace 12pt (para terminais e editores)
-- **Tema:** Dark (tema escuro do GNOME)
-- **Wallpaper:** aponta para `/usr/share/wallpapers/studio_wallpaper.jpg` (o wallpaper do projeto)
-
-Por fim, **remove o próprio arquivo de autostart** (`/home/tux/.config/autostart/config.desktop`). Isso garante que essas configurações sejam aplicadas apenas uma vez, no primeiro login — nas inicializações seguintes o arquivo não existe mais e o script não é chamado.
+Configura a aparência do GNOME (dock, fonte, tema Dark, wallpaper) e depois **se auto-remove do autostart**. Nas inicializações seguintes o arquivo não existe e o script não roda.
 
 ---
 
@@ -520,19 +420,13 @@ Por fim, **remove o próprio arquivo de autostart** (`/home/tux/.config/autostar
 
 **Localização:** `suse/.../root/home/tux/bin/exo`
 
-**Chamado por:** usuário manualmente (`~/bin/exo` ou simplesmente `exo` se `~/bin` estiver no PATH)
-
-**O que faz:**
-
 ```bash
 cd ~/exo
 source .venv/bin/activate
 exo
 ```
 
-Navega para o diretório `~/exo`, ativa o virtualenv Python em `.venv/` e executa o binário `exo`. O framework [exo](https://github.com/exo-explore/exo) permite distribuir a execução de um LLM entre múltiplos dispositivos na rede local — cada máquina processa parte do modelo, viabilizando rodar modelos grandes sem uma única GPU potente.
-
-O diretório `~/exo` e o virtualenv **não estão na ISO** — precisam ser criados manualmente:
+Ativa um virtualenv Python e executa o framework [exo](https://github.com/exo-explore/exo), que distribui a execução de um LLM entre múltiplos dispositivos na rede local. O diretório `~/exo` e o venv não estão na ISO — precisam ser criados manualmente:
 
 ```bash
 mkdir ~/exo && cd ~/exo
@@ -547,46 +441,39 @@ pip install exo-inference
 
 **Localização:** `suse/x86_64/suse-leap-15.6-JeOS/config.sh`
 
-**Executado por:** KIWI NG durante o build da ISO, dentro do chroot (sistema de arquivos isolado da imagem em construção). Roda como root. Tem acesso à imagem ainda não comprimida.
+**Executado por:** KIWI NG durante o build, dentro do chroot da imagem. Roda como root com acesso ao sistema de arquivos ainda não comprimido.
 
-**O que faz em sequência:**
+**Em sequência:**
 
-**1. Carrega funções e perfil do KIWI:**
+**1. Carrega funções do KIWI:**
 ```bash
 test -f /.kconfig && . /.kconfig
 test -f /.profile && . /.profile
 ```
-Importa as funções utilitárias do KIWI (`suseSetupProduct`, `suseInsertService`, etc.) se disponíveis.
+Importa `suseSetupProduct`, `suseInsertService`, `baseUpdateSysConfig`, etc.
 
-**2. Setup do produto openSUSE:**
+**2. Setup do produto:**
 ```bash
 suseSetupProduct      # cria /etc/products.d/baseproduct symlink
-suseImportBuildKey    # importa chaves GPG da SUSE para o banco de chaves RPM
+suseImportBuildKey    # importa chaves GPG da SUSE no banco RPM
 ```
 
 **3. Otimização do zypper:**
 ```bash
-sed --in-place -e 's/# solver.onlyRequires.*/solver.onlyRequires = true/' /etc/zypp/zypp.conf
+sed -i -e 's/# solver.onlyRequires.*/solver.onlyRequires = true/' /etc/zypp/zypp.conf
 ```
-Faz o zypper resolver apenas dependências `Requires`, ignorando `Recommends` e `Suggests`. Reduz o número de pacotes instalados e evita que pacotes recomendados mas não necessários entrem na imagem.
+Faz o zypper instalar apenas dependências `Requires`, ignorando `Recommends`. Evita centenas de pacotes desnecessários.
 
-**4. Configurações de sysconfig:**
+**4. Sysconfig:**
 ```bash
-baseUpdateSysConfig /etc/sysconfig/keyboard KEYTABLE us.map.gz
-baseUpdateSysConfig /etc/init.d/suse_studio_firstboot NETWORKMANAGER yes
-baseUpdateSysConfig /etc/sysconfig/console CONSOLE_FONT lat9w-16.psfu
 baseUpdateSysConfig /etc/sysconfig/displaymanager DISPLAYMANAGER_AUTOLOGIN tux
 baseUpdateSysConfig /etc/sysconfig/displaymanager DISPLAYMANAGER gdm
 baseUpdateSysConfig /etc/sysconfig/windowmanager DEFAULT_WM gnome
 ```
-Define: teclado US durante o build (o `keytable br` do config.xml ajusta no boot), NetworkManager ativo, autologin do `tux` via GDM, GNOME como WM padrão.
+Define autologin do `tux`, GDM e GNOME dentro da imagem.
 
 **5. Preparação do overlay:**
-- Cria `/studio/` se não existir
-- Copia `.profile` e `config.xml` para `/studio/` (usado pelo firstboot legado)
-- Remove `/studio/overlay-tmp` (limpeza de arquivos temporários)
-- Se o usuário `ollama` existir e `/var/lib/ollama` existir, ajusta proprietário para `ollama:ollama`
-- **Comenta os scripts legados** de tema GDM/GNOME — `configure_gdm_theme.sh` e `configure_gnome_background.sh` usavam `gconftool-2` que não existe no KIWI 10
+Cria `/studio/`, copia `.profile` e `config.xml` para lá, remove `/studio/overlay-tmp`. Comenta os scripts legados de tema GDM/GNOME — usavam `gconftool-2` que não existe no GNOME 3.
 
 **6. Ativação de serviços:**
 ```bash
@@ -594,28 +481,19 @@ suseInsertService sshd
 suseInsertService ollama
 suseInsertService multicortex-chat-ui
 ```
-Equivalente a `systemctl enable` mas usando a API do KIWI. Habilita `sshd`, `ollama` e `multicortex-chat-ui` para iniciar no boot.
+Equivalente a `systemctl enable` dentro do chroot. Cria links em `/etc/systemd/system/multi-user.target.wants/`.
 
-Para builds OEM/VMX habilita `grub_config`; para ISO Live remove esse serviço.
-
-**7. Runlevel 3 e limpeza:**
+**7. Limpeza:**
 ```bash
-baseSetRunlevel 3          # modo multi-user sem gráfico (temporário durante o build)
-rm -rf /usr/share/doc/packages/*    # remove documentação dos pacotes
-rm -rf /usr/share/doc/manual/*
-rm -rf /opt/kde*                    # remove resquícios de KDE se houver
-sed -i -e's/^syntax on/" syntax on/' /etc/vimrc   # desativa syntax highlighting no vim
+rm -rf /usr/share/doc/packages/*
+rm -rf /opt/kde*
+/sbin/ldconfig          # reconstrói cache do linker dinâmico
+baseSetRunlevel 5       # modo gráfico (graphical.target)
 ```
 
-**8. ldconfig e runlevel 5:**
-```bash
-/sbin/ldconfig      # reconstrói cache de bibliotecas dinâmicas
-baseSetRunlevel 5   # modo gráfico (final)
-```
+**8. `exit 0`**
 
-**9. exit 0**
-
-O script termina aqui. O bloco `MULTICORTEX EXO GENERATED CONFIG` abaixo do `exit 0` **nunca é executado** — é código morto que precisa ser movido para antes do `exit 0`.
+O script termina aqui. O bloco `MULTICORTEX EXO GENERATED CONFIG` logo abaixo **nunca executa** — está após o `exit 0`. É o principal bug conhecido do repositório.
 
 ---
 
@@ -623,93 +501,37 @@ O script termina aqui. O bloco `MULTICORTEX EXO GENERATED CONFIG` abaixo do `exi
 
 **Localização:** `scripts/gerar_iso_multicortex_completo_py36.py`
 
-**Executado por:** usuário root no host openSUSE Leap 15.6, antes de qualquer build
+**Executado por:** root no host openSUSE Leap 15.6
 
-**Compatibilidade:** Python 3.6+ (usa apenas stdlib: `argparse`, `os`, `re`, `shutil`, `subprocess`, `sys`, `pathlib`)
+**Compatibilidade:** Python 3.6+ (stdlib apenas: `argparse`, `os`, `re`, `shutil`, `subprocess`, `sys`, `pathlib`)
 
-**Argumentos de linha de comando:**
+**Argumentos:**
 
 ```
---workdir PATH    pasta de trabalho (padrão: /home/hawk/builds se existir, senão ~/builds)
---clean           apaga a pasta de trabalho inteira antes de começar
---no-install      pula a instalação de pacotes no host (assume que kiwi-ng já está disponível)
+--workdir PATH    pasta de trabalho (padrão: /home/hawk/builds ou ~/builds)
+--clean           apaga a pasta de trabalho antes de começar
+--no-install      pula instalação de pacotes (assume kiwi-ng disponível)
 ```
 
-**O que faz em sequência:**
+**Em sequência:**
 
-**1. Verificação de root:**
-```python
-if not is_root():
-    print("ERRO: rode como root.")
-    sys.exit(1)
-```
-KIWI precisa de root para montar sistemas de arquivos, usar loop devices e fazer chroot.
-
-**2. Detecção do sistema operacional:**
-Lê `/etc/os-release` e verifica se `VERSION_ID == "15.6"`. Emite aviso se não for, mas não aborta — permite build experimental em outras versões.
-
-**3. Instalação de dependências no host (`ensure_host_packages`):**
-Executa `zypper --gpg-auto-import-keys refresh` para atualizar os repositórios. Instala:
-```
-git, python3, python3-pip, python3-kiwi, curl, wget, nano,
-xz, tar, gzip, cpio, rsync, which, ca-certificates,
-ca-certificates-mozilla, openssl
-```
-Se `kiwi-ng` não estiver disponível após a instalação, adiciona o repositório KIWI Builder (`Virtualization:/Appliances:/Builder/openSUSE_Leap_15.6/`) e tenta instalar novamente. Verifica o resultado com `kiwi-ng --version`.
-
-**4. Clone ou atualização do repositório (`clone_or_update`):**
-Verifica se `workdir/multicortex-exo/.git` existe. Se sim: `git pull --ff-only` (atualização rápida sem merge). Se não: `git clone https://github.com/cabelo/multicortex-exo.git`. Valida que o diretório `suse/x86_64/suse-leap-15.6-JeOS` existe dentro do clone.
-
-**5. Cópia do descritor KIWI (`copy_kiwi_descriptor`):**
-Copia `multicortex-exo/suse/x86_64/suse-leap-15.6-JeOS` para `workdir/kiwi-desc` usando `shutil.copytree`. Remove o destino antes se existir. Valida que `config.xml` existe na cópia.
-
-**6. Patch do `config.xml` (`patch_config_xml`):**
-
-*Substituições de URL (HTTPS → HTTP):*
-```
-obs://Virtualization:Appliances:Builder/... → http://download.opensuse.org/.../
-https://download.opensuse.org/... → http://download.opensuse.org/...
-https://download.opensuse.org/repositories/home:/cabelo:/jax/... → http://...
-```
-Necessário porque o chroot KIWI pode ter problemas de certificado HTTPS. HTTP funciona de forma mais confiável em ambientes isolados.
-
-*Adição de repositórios faltantes:*
-Verifica se os repositórios non-oss e NVIDIA já estão no XML. Se não estiverem, os insere antes do bloco `<packages type="image">` usando regex.
-
-*Adição de pacotes bootstrap:*
-Garante que `ca-certificates-mozilla` e `openssl` estejam no bloco `<packages type="bootstrap">` (pacotes instalados primeiro, antes de tudo). Resolve problemas de certificado durante o build.
-
-*Garantia dos pacotes NVIDIA G06:*
-Verifica se cada pacote da lista está presente no XML:
-```
-nvidia-common-G06, nvidia-compute-G06, nvidia-compute-utils-G06,
-nvidia-utils-G06, nvidia-driver-G06-kmp-default
-```
-Se algum estiver faltando, insere no bloco `<packages type="image">`.
-
-*Compatibilidade com KIWI 10:*
-Comenta `baseMount` e `baseCleanMount` no `config.sh` se ainda estiverem presentes (funções removidas no KIWI 10 que causam erro).
-
-Ao final, imprime um relatório mostrando: pacotes NVIDIA garantidos, todas as URLs de repositório, pacotes bootstrap críticos.
-
-**7. Build da ISO (`build_iso`):**
-Apaga e recria `workdir/out/`. Executa:
-```
-kiwi-ng --debug system build \
-  --description workdir/kiwi-desc \
-  --target-dir workdir/out
-```
-Usa `subprocess.Popen` com `stdout=PIPE` para ler a saída linha a linha — imprime em tempo real na tela E grava em `workdir/build-multicortex.log`. Se o código de retorno for diferente de zero, informa o erro e a localização do log. Se nenhum `.iso` for encontrado em `workdir/out/`, reporta os arquivos presentes e encerra com erro 2. Em caso de sucesso, lista os arquivos `.iso` gerados com tamanho em GiB.
+1. Verifica `os.geteuid() == 0`
+2. Lê `/etc/os-release`, avisa se não for Leap 15.6
+3. `ensure_host_packages()`: `zypper refresh` + instala `git`, `python3-kiwi`, `curl`, `ca-certificates`, `openssl` etc. Se `kiwi-ng` não for encontrado, adiciona o repositório KIWI Builder e reinstala
+4. `clone_or_update()`: `git clone cabelo/multicortex-exo` ou `git pull --ff-only`
+5. `copy_kiwi_descriptor()`: `shutil.copytree` de `suse/x86_64/suse-leap-15.6-JeOS` para `workdir/kiwi-desc/`
+6. `patch_config_xml()`: HTTPS→HTTP, adiciona repos non-oss e NVIDIA, adiciona `ca-certificates-mozilla`/`openssl` no bootstrap, garante os 5 pacotes NVIDIA G06, comenta `baseMount`/`baseCleanMount` no `config.sh`
+7. `build_iso()`: `kiwi-ng --debug system build --description kiwi-desc --target-dir out`. Log em tempo real via `subprocess.Popen` gravado em `build-multicortex.log`
 
 ---
 
 ### Scripts legados (`studio/`)
 
-**`configure_gdm_theme.sh`** — configura o tema visual do GDM (login screen). Usa `gconftool-2` para GNOME 2/SLED 10 e comandos diretos para openSUSE 11.4. Também habilita acesso remoto via `gconftool-2`. **Não é executado** no build atual — foi comentado no `config.sh` porque o `gconftool-2` não existe em GNOME 3 (presente no Leap 15.6).
+**`configure_gdm_theme.sh`** — configura tema GDM com `gconftool-2`. **Não executa** — comentado no `config.sh` porque o `gconftool-2` não existe no GNOME 3.
 
-**`configure_gnome_background.sh`** — configura o wallpaper do GNOME. Tenta três abordagens: gconftool para GNOME 2, gconftool para openSUSE 11.4, e gsettings moderno. Ao final, define favoritos da dock e tema via `gsettings` — essa parte seria útil, mas o script inteiro foi desabilitado para evitar falha no `gconftool-2`. **Não é executado.**
+**`configure_gnome_background.sh`** — configura wallpaper e dock via `gsettings`. **Não executa** — desabilitado junto com o anterior.
 
-**`firstboot_scripts/config.sh`** — versão legada do script de firstboot. Configura GNOME via `gsettings` (favoritos, fonte, tema, wallpaper) e faz `c_rehash` (reconstrói hashes de certificados SSL). Ativa `sshd` e outros serviços. **Não é executado** no build atual — substituído pelo `config.sh` principal.
+**`firstboot_scripts/config.sh`** — configura GNOME via `gsettings` e faz `c_rehash`. **Não executa** no build atual.
 
 ---
 
@@ -719,19 +541,7 @@ Usa `subprocess.Popen` com `stdout=PIPE` para ler a saída linha a linha — imp
 
 **Chamado por:** `suse-studio-firstboot.service` na primeira inicialização
 
-**O que faz:**
-
-Script complexo de configuração de primeira inicialização, herdado do SUSE Studio. Detecta automaticamente todas as interfaces de rede Ethernet (`ls /sys/class/net/`) e configura DHCP para cada uma. Em modo "Testdrive" (máquina virtual da plataforma SUSE Studio), desativa efeitos visuais do KDE e a ferramenta vmtoolsd.
-
-Configura o GNOME: define apps favoritos na dock, fonte monoespaçada, tema Dark, wallpaper do projeto.
-
-Ao final, **se auto-desativa e se auto-deleta**:
-```bash
-systemctl disable suse-studio-firstboot
-rm -f /etc/systemd/system/suse-studio-firstboot.service
-rm -f /etc/init.d/suse_studio_firstboot
-```
-Executa apenas uma vez.
+Detecta todas as interfaces Ethernet e configura DHCP. Em modo Testdrive (SUSE Studio), desativa efeitos do KDE e vmtoolsd. Configura GNOME: dock, fonte, tema Dark, wallpaper. Ao final **se auto-desativa e se auto-deleta** — executa apenas uma vez.
 
 ---
 
@@ -746,52 +556,49 @@ ExecStart=/usr/bin/bash -lc 'mkdir -p /var/lib/ollama /var/log/multicortex; chmo
 RemainAfterExit=yes
 ```
 
-`Type=oneshot` — executa uma vez e termina. `RemainAfterExit=yes` — o systemd considera o serviço "ativo" mesmo após o processo terminar, o que permite que outros serviços dependam dele com `After=multicortex-firstboot.service`.
-
-Cria `/var/lib/ollama` (onde o Ollama armazena modelos, manifests e blobs) e `/var/log/multicortex` (logs do sistema MultiCortex). Ambos com permissão 755. Necessário porque o build KIWI não executa o bloco MultiCortex do `config.sh` (bug do `exit 0` antecipado).
+`Type=oneshot` executa uma vez e termina. `RemainAfterExit=yes` mantém o serviço como "ativo" para que outros possam depender dele. Cria `/var/lib/ollama` (onde o Ollama armazena modelos) e `/var/log/multicortex`. Existe porque o bloco do `config.sh` que criaria esses diretórios nunca executa (bug do `exit 0`).
 
 ### `ollama.service`
 
-Instalado pelo pacote `ollama` (do repositório JAX). Inicia o servidor Ollama em `127.0.0.1:11434`. Gerencia o carregamento de modelos em memória (RAM ou VRAM da GPU). Reinicia automaticamente em caso de falha.
+Instalado pelo pacote `ollama` (repositório JAX). Inicia em `127.0.0.1:11434`. Gerencia carregamento de modelos em RAM ou VRAM. Reinicia automaticamente em caso de falha.
 
 ### `sshd.service`
 
-Servidor OpenSSH. Permite acesso remoto à ISO via `ssh tux@<ip>` ou `ssh root@<ip>`. Útil para gerenciar a máquina remotamente sem precisar de teclado/monitor.
+SSH na porta 22. Permite acesso remoto: `ssh tux@<ip>` ou `ssh root@<ip>`.
 
 ### `multicortex-chat-ui.service`
 
-Habilitado no `config.sh` (`suseInsertService multicortex-chat-ui`), mas **o arquivo `.service` não está no overlay**. O serviço não tem definição — provavelmente seria instalado por um pacote ou criado manualmente. Deveria iniciar uma interface web de chat na porta 3000.
+Habilitado no `config.sh`, mas **sem arquivo `.service` no overlay**. Deveria iniciar uma interface web de chat na porta 3000. Pendência.
 
 ### `open-webui.service`
 
-Referenciado no menu e no status, mas também sem arquivo `.service` no overlay. Seria o [Open WebUI](https://github.com/open-webui/open-webui) — interface web para Ollama — na porta 8080.
+Referenciado no menu e status, sem arquivo `.service` no overlay. Seria o [Open WebUI](https://github.com/open-webui/open-webui) na porta 8080.
 
 ### `grub_config.service`
 
 ```ini
-[Service]
+ConditionPathExists=/.kiwi_grub_config.trigger
 ExecStart=/bin/bash -c 'grub2-mkconfig -o /boot/grub2/grub.cfg'
 ExecStartPost=/bin/bash -c 'rm -f /.kiwi_grub_config.trigger'
-ConditionPathExists=/.kiwi_grub_config.trigger
 ```
 
-Reconstrói o `grub.cfg` após a instalação em disco (builds OEM). Ativado apenas quando o arquivo `.kiwi_grub_config.trigger` existe — o KIWI cria esse arquivo em builds OEM para sinalizar que o GRUB precisa ser reconfigurado após o primeiro boot.
+Reconstrói o `grub.cfg` após instalação em disco (builds OEM). Só dispara quando o arquivo trigger existe — criado pelo KIWI em builds OEM.
 
 ### `suse-studio-firstboot.service` e `suse-studio-custom.service`
 
-Serviços legados do SUSE Studio. O `firstboot` executa `/etc/init.d/suse_studio_firstboot` (visto acima) e depois se auto-deleta. O `custom` executaria `/studio/suse-studio-custom` se esse arquivo existir — permite scripts de customização pós-boot. Ambos são herança da plataforma SUSE Studio.
+Legados do SUSE Studio. O `firstboot` executa `/etc/init.d/suse_studio_firstboot` e se auto-deleta. O `custom` executaria `/studio/suse-studio-custom` se existir.
 
 ---
 
 ## Overlay root — arquivos copiados na ISO
 
-Tudo em `suse/x86_64/suse-leap-15.6-JeOS/root/` é copiado pelo KIWI para dentro da ISO durante o build. O caminho é preservado — `root/etc/motd` vira `/etc/motd` na ISO.
+Tudo em `suse/x86_64/suse-leap-15.6-JeOS/root/` é copiado pelo KIWI para dentro da ISO. O caminho é preservado — `root/etc/motd` vira `/etc/motd`.
 
-**`/etc/motd`** — exibido no terminal após o login SSH ou console. Lista todos os comandos disponíveis e informa as credenciais padrão.
+**`/etc/motd`** — exibido no login. Lista comandos disponíveis e credenciais padrão.
 
-**`/etc/multicortex-version`** — string `0.99 Build 20260609 11:17`. Lida pelo `multicortex-status.sh` para exibir a versão da ISO.
+**`/etc/multicortex-version`** — string de versão lida pelo `multicortex-status.sh`.
 
-**`/etc/profile.d/multicortex.sh`** — carregado automaticamente para todos os usuários em qualquer shell de login:
+**`/etc/profile.d/multicortex.sh`** — carregado em todo shell de login:
 ```bash
 export OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}"
 alias mc-status='multicortex-status'
@@ -799,13 +606,11 @@ alias mc-menu='multicortex-menu'
 alias mc-models='multicortex-models-list'
 ```
 
-**`/etc/ld.so.conf.d/cuda.conf`** — configura o linker dinâmico para procurar bibliotecas em `/usr/local/cuda/lib64`. As bibliotecas CUDA em si precisam ser copiadas manualmente para `/usr/local/cuda/` — o diretório existe mas tem apenas um `readme.txt`.
+**`/etc/ld.so.conf.d/cuda.conf`** — linker para `/usr/local/cuda/lib64`. As libs CUDA precisam ser instaladas manualmente — o diretório existe mas tem apenas um `readme.txt`.
 
-**`/etc/sysconfig/network/ifcfg-lan0`** — configura a interface `lan0` para DHCP automático (`BOOTPROTO=dhcp`, `STARTMODE=onboot`). A interface Ethernet principal ganha IP automaticamente no boot.
+**`/etc/sysconfig/network/ifcfg-lan0`** — `BOOTPROTO=dhcp`, `STARTMODE=onboot`. DHCP automático no boot.
 
-**`/etc/zypp/repos.d/jax_15.6.repo`** — repositório `home:cabelo:jax` pré-configurado dentro da ISO. Contém pacotes de IA como OpenVINO, OpenCV com DNN, e outras bibliotecas do projeto original. Permite instalar esses pacotes com `zypper install` após o boot sem precisar adicionar o repositório manualmente.
-
-**`/usr/local/cuda/readme.txt`** — instrução: "Place all CUDA library files here." É um placeholder para instalação manual das libs CUDA, caso o usuário queira usar CUDA além do que os drivers NVIDIA já fornecem.
+**`/etc/zypp/repos.d/jax_15.6.repo`** — repositório `home:cabelo:jax` pré-configurado. Permite `zypper install` de pacotes de IA após o boot sem configuração adicional.
 
 ---
 
@@ -817,7 +622,7 @@ root      linux    root
 tux       linux    users
 ```
 
-> **Trocar imediatamente antes de usar em rede ou publicar ISO:**
+> Trocar antes de usar em rede ou publicar ISO:
 
 ```bash
 passwd root
@@ -828,43 +633,520 @@ Para gerar hash para o `config.xml` antes de um novo build:
 
 ```bash
 openssl passwd -1 'NovaSenhaAqui'
-# Copiar o hash gerado para o campo password= no config.xml
 ```
 
 ---
 
-## Como compilar a ISO
+## Walkthrough completo: do comando à ISO rodando
+
+Fluxo detalhado de tudo que acontece ao executar o build, usando o perfil **light** como exemplo — o mais simples de observar de ponta a ponta.
+
+### Visão geral do fluxo
+
+```
+VOCÊ                 SCRIPT PYTHON              KIWI NG                ISO GERADA
+  │                       │                        │                       │
+  │ python3               │                        │                       │
+  │ gerar_iso.py ────────>│                        │                       │
+  │                       │ verifica root          │                       │
+  │                       │ lê /etc/os-release     │                       │
+  │                       │ zypper install kiwi-ng │                       │
+  │                       │ git clone/pull         │                       │
+  │                       │ copia kiwi-desc/       │                       │
+  │                       │ patcha config.xml      │                       │
+  │                       │ kiwi-ng build ────────>│                       │
+  │                       │                        │ valida config.xml     │
+  │                       │                        │ fase bootstrap        │
+  │                       │                        │ fase image (~800 pkgs)│
+  │                       │                        │ copia overlay root/   │
+  │                       │                        │ executa config.sh     │
+  │                       │                        │ gera initramfs        │
+  │                       │                        │ comprime SquashFS     │
+  │                       │                        │ monta bootloaders     │
+  │                       │                        │ xorriso → .iso ──────>│
+  │                       │<───────────────────────│                       │
+  │<──────────────────────│                        │                       │
+  │                       │                        │              dd → pendrive
+  │                       │                        │              UEFI → GRUB2
+  │                       │                        │              kernel + overlay
+  │                       │                        │              systemd
+  │                       │                        │              GNOME → autostart
+  │                       │                        │              ollama run llama3.2
+```
+
+---
+
+### Parte 1 — Execução do script Python
+
+#### Passo 1: você digita o comando
+
+```bash
+su -
+python3 /caminho/para/scripts/gerar_iso_multicortex_completo_py36.py
+```
+
+O `su -` é obrigatório — não `sudo`. O KIWI precisa de root real para usar `loop devices`, montar sistemas de arquivos e fazer `chroot`. Com `sudo` algumas operações de mount falham silenciosamente.
+
+```python
+if not is_root():      # checa os.geteuid() == 0
+    print("ERRO: rode como root.")
+    sys.exit(1)
+```
+
+#### Passo 2: detecção do SO
+
+Lê e parseia `/etc/os-release`. Emite aviso se `VERSION_ID != "15.6"` mas não aborta.
+
+```
+Sistema detectado:
+  NAME=openSUSE Leap
+  VERSION_ID=15.6
+```
+
+#### Passo 3: definição do diretório de trabalho
+
+```python
+def default_workdir():
+    if Path("/home/hawk").exists():
+        return Path("/home/hawk/builds")
+    return Path.home() / "builds"
+```
+
+Se `--clean` foi passado: `shutil.rmtree(workdir)` apaga tudo antes de começar.
+
+#### Passo 4: instalação de dependências no host
+
+```
+zypper --gpg-auto-import-keys refresh
+```
+
+O `--gpg-auto-import-keys` aceita chaves GPG novas sem interação. Depois instala:
+
+```
+git  python3  python3-pip  python3-kiwi  curl  wget  nano
+xz  tar  gzip  cpio  rsync  which
+ca-certificates  ca-certificates-mozilla  openssl
+```
+
+Se `kiwi-ng` não for encontrado no PATH após a instalação, adiciona o repositório KIWI Builder automaticamente:
+
+```
+zypper ar -f https://download.opensuse.org/repositories/
+              Virtualization:/Appliances:/Builder/openSUSE_Leap_15.6/
+              kiwi-builder
+```
+
+E tenta instalar novamente. Encerra com `kiwi-ng --version` para confirmar.
+
+#### Passo 5: clone ou atualização do upstream
+
+```python
+repo_dir = workdir / "multicortex-exo"
+```
+
+Se `.git` existe: `git pull --ff-only` — fast-forward only, sem merge commits. Garante build sempre baseado no upstream limpo.
+
+Se não existe: `git clone https://github.com/cabelo/multicortex-exo.git`.
+
+Valida que `suse/x86_64/suse-leap-15.6-JeOS` existe dentro do clone.
+
+#### Passo 6: cópia do descritor KIWI
+
+```python
+shutil.copytree(str(src), str(dst), symlinks=True)
+```
+
+Copia `multicortex-exo/suse/x86_64/suse-leap-15.6-JeOS` para `workdir/kiwi-desc/`. Apaga destino anterior se existir. `symlinks=True` preserva links simbólicos.
+
+#### Passo 7: patch do `config.xml`
+
+Lê o XML inteiro como string. Todas as modificações são feitas em memória e gravadas de volta.
+
+**HTTPS → HTTP:** o prefixo `obs://` é URL interna do OBS (Build Service da SUSE) — só funciona dentro da infraestrutura deles. Fora, precisa virar URL HTTP real. HTTPS é convertido para HTTP porque o chroot KIWI é isolado sem CAs configurados.
+
+```python
+replacements = {
+    'obs://Virtualization:Appliances:Builder/openSUSE_Leap_15.6':
+        'http://download.opensuse.org/repositories/Virtualization:/Appliances:/Builder/openSUSE_Leap_15.6/',
+    'https://download.opensuse.org/...': 'http://download.opensuse.org/...',
+    # ...
+}
+```
+
+**Adiciona repos non-oss e NVIDIA** antes do bloco `<packages type="image">` se não estiverem presentes — usa `str.replace` com verificação de idempotência.
+
+**Bootstrap críticos:** garante `ca-certificates-mozilla` e `openssl` no bloco `<packages type="bootstrap">` via regex com `re.DOTALL` (para casar newlines). Sem eles, qualquer download HTTPS feito durante a fase de instalação falha.
+
+**Garante os 5 pacotes NVIDIA G06:**
+```
+nvidia-common-G06  nvidia-compute-G06  nvidia-compute-utils-G06
+nvidia-utils-G06   nvidia-driver-G06-kmp-default
+```
+Verifica presença em aspas simples E duplas antes de inserir.
+
+**Compatibilidade KIWI 10:** comenta `baseMount` e `baseCleanMount` no `config.sh` se ainda estiverem lá.
+
+Grava o `config.xml` modificado. O original no upstream não é tocado.
+
+#### Passo 8: execução do build KIWI
+
+```python
+cmd = ["kiwi-ng", "--debug", "system", "build",
+       "--description", str(kiwi_desc),
+       "--target-dir",  str(out_dir)]
+
+proc = subprocess.Popen(cmd, stdout=PIPE, stderr=STDOUT,
+                        universal_newlines=True, bufsize=1)
+with log_file.open("w") as log:
+    for line in proc.stdout:
+        print(line, end="")   # tempo real na tela
+        log.write(line)       # e no arquivo de log
+code = proc.wait()
+```
+
+`stderr=STDOUT` une os dois streams para manter ordem cronológica. O log completo fica em `builds/build-multicortex.log`.
+
+---
+
+### Parte 2 — O que o KIWI NG faz internamente
+
+A partir daqui o controle passa inteiramente para o KIWI.
+
+#### Passo 9: parsing e validação do `config.xml`
+
+KIWI valida o XML contra o schema 6.4: tipos de imagem, pacotes duplicados, repositórios acessíveis. Se o XML for inválido, aborta com erro de schema.
+
+#### Passo 10: fase bootstrap
+
+KIWI cria o **root tree** — diretório temporário onde a imagem será montada. Instala os pacotes do bloco `<packages type="bootstrap">` **usando `rpm` direto no host**, sem zypper dentro do chroot, porque o zypper ainda não existe na imagem:
+
+```xml
+<packages type="bootstrap">
+    <package name="filesystem"/>      <!-- cria /usr /etc /var etc -->
+    <package name="glibc-locale"/>    <!-- libs de localização -->
+    <package name="udev"/>
+    <package name="ca-certificates"/>
+    <package name="ca-certificates-mozilla"/>  <!-- CAs para HTTPS -->
+    <package name="openssl"/>
+    <package name="openSUSE-release"/>  <!-- define a distro para o zypper -->
+    <package name="cracklib-dict-full"/>
+    <package name="module-init-tools"/>
+</packages>
+```
+
+`filesystem` cria a estrutura de diretórios FHS. `ca-certificates-mozilla` + `openssl` são os adicionados pelo patch Python — sem eles, o zypper dentro do chroot falha em downloads HTTPS.
+
+#### Passo 11: fase image
+
+Com o bootstrap, o KIWI entra no chroot e executa o zypper de dentro:
+
+```bash
+chroot /tmp/kiwi-root-tree-XXXX zypper install [lista de pacotes do config.xml]
+```
+
+Você lista ~120 pacotes no `config.xml`, mas o solver do zypper instala ~800 por causa das dependências transitivas. O `solver.onlyRequires = true` já estava no `config.xml` original, mas o patch do Python garante que está presente mesmo em builds do upstream. Sem isso, o zypper traria centenas de pacotes `Recommended`.
+
+Para o perfil light, os pacotes-chave nessa fase são: `python312`, `nodejs20`, `opencv-devel`, `tbb-devel`, `ollama` (do repositório JAX), toda a pilha GNOME, drivers NVIDIA G06.
+
+No terminal você vê:
+
+```
+[ 45%] Installing: kernel-default-6.4.0-150600.23.25.1.x86_64
+[ 46%] Installing: python312-3.12.4-150600.3.3.1.x86_64
+[ 47%] Installing: ollama-0.3.6-lp156.1.x86_64
+```
+
+#### Passo 12: cópia do overlay `root/`
+
+O KIWI copia recursivamente `kiwi-desc/root/` para dentro do root tree, **sobrescrevendo** qualquer arquivo que um pacote tenha instalado. É o mecanismo de customização: você substitui qualquer arquivo de qualquer pacote colocando a versão modificada no overlay.
+
+Também extrai os arquivos `.tar` declarados no `config.xml`:
+
+```xml
+<archive name='plymouth.tar' bootinclude='true'/>
+<archive name='gdm.tar' bootinclude='true'/>
+```
+
+Os temas visuais entram na imagem nesse momento.
+
+#### Passo 13: execução do `config.sh` dentro do chroot
+
+```bash
+chroot /tmp/kiwi-root-tree-XXXX /bin/bash /image/config.sh
+```
+
+O arquivo `/image/config.sh` dentro do chroot é o `kiwi-desc/config.sh`. O KIWI injeta funções utilitárias em `/.kconfig` antes de executar.
+
+Em sequência dentro do chroot:
+- `suseSetupProduct` cria o link `/etc/products.d/baseproduct`
+- `suseImportBuildKey` importa GPG no banco RPM da imagem
+- `sed` ativa `solver.onlyRequires` no `zypp.conf` da imagem
+- `baseUpdateSysConfig` define autologin do `tux`, GDM, GNOME
+- `suseInsertService sshd/ollama/multicortex-chat-ui` cria links em `/etc/systemd/system/multi-user.target.wants/`
+- `rm -rf /usr/share/doc/packages/*` remove documentação
+- `/sbin/ldconfig` reconstrói o cache do linker dinâmico
+- `baseSetRunlevel 5` define `graphical.target` como padrão
+- `exit 0` — o script termina. O bloco MULTICORTEX abaixo **nunca executa**.
+
+#### Passo 14: geração do initramfs
+
+```bash
+chroot /tmp/kiwi-root-tree-XXXX dracut --force --add "kiwi-live" [...]
+```
+
+O módulo `kiwi-live` (do pacote `dracut-kiwi-live`) ensina o initramfs a montar o SquashFS e criar o overlay no boot. O initramfs contém scripts de detecção de mídia, montagem, módulos do kernel (squashfs, loop, ext4, usb) e binários mínimos.
+
+#### Passo 15: compressão em SquashFS
+
+```bash
+mksquashfs /tmp/kiwi-root-tree-XXXX /tmp/.../LiveOS/squashfs.img -comp xz -b 1M
+```
+
+`xz` oferece a melhor compressão — um root tree de ~8GB vira ~1.8GB. A descompressão é sob demanda: o kernel descomprime apenas os blocos acessados, não a imagem inteira.
+
+#### Passo 16: montagem da estrutura da ISO
+
+```
+/tmp/kiwi-iso-XXXX/
+├── boot/grub2/themes/studio/    ← tema GRUB2
+├── EFI/BOOT/
+│   ├── bootx64.efi              ← shim (1º estágio UEFI)
+│   └── grub.efi                 ← GRUB2 (2º estágio UEFI)
+├── LiveOS/squashfs.img          ← sistema completo comprimido
+└── isolinux/                    ← SYSLINUX para BIOS legacy
+```
+
+#### Passo 17: instalação dos bootloaders
+
+**UEFI:** `shim` + `grub.efi` copiados para `EFI/BOOT/`. O shim valida o GRUB2 para Secure Boot, ou carrega diretamente com Secure Boot desligado. GRUB2 recebe `grub.cfg` com as entradas de boot.
+
+**BIOS legacy:** `isolinux.bin` + `isolinux.cfg` configurados para carregar o mesmo kernel.
+
+#### Passo 18: geração do arquivo ISO híbrido
+
+```bash
+xorriso -as mkisofs \
+  -eltorito-boot isolinux/isolinux.bin \   ← boot BIOS
+  -eltorito-alt-boot \
+  -e EFI/BOOT/bootx64.efi \               ← boot UEFI
+  -isohybrid-mbr isohdpfx.bin \           ← MBR para pendrive
+  -output MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso \
+  /tmp/kiwi-iso-XXXX/
+```
+
+`xorriso` gera uma imagem que é simultaneamente ISO 9660 (CD/DVD), disco com MBR (pendrive via BIOS) e GPT com partição ESP (pendrive via UEFI). O `isohdpfx.bin` são os 432 bytes gravados no início que funcionam como MBR.
+
+`hybridpersistent="true"` do `config.xml` faz o KIWI reservar espaço no final da imagem para a partição de persistência ext4 quando gravada em pendrive.
+
+#### Passo 19: resultado
+
+```
+=== ISO gerada com sucesso ===
+ - /home/hawk/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso (1.79 GiB)
+```
+
+---
+
+### Parte 3 — Do pendrive ao modelo respondendo
+
+#### Passo 20: gravação no pendrive
+
+```bash
+dd if=MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso of=/dev/sdX bs=4M status=progress conv=fsync
+```
+
+`dd` copia byte a byte, incluindo o MBR híbrido nos primeiros 446 bytes. `conv=fsync` força escrita para o hardware antes de retornar — sem ele o terminal pode indicar término com dados ainda no cache do kernel.
+
+#### Passo 21: UEFI detecta e inicializa
+
+O firmware escaneia dispositivos em busca de `EFI/BOOT/bootx64.efi`. Encontra no pendrive, carrega o shim, que carrega o GRUB2. O menu "studio" aparece:
+
+```
+  Boot Live System
+  Check Installation Media
+```
+
+Sem tecla pressionada, a primeira entrada é selecionada após alguns segundos.
+
+#### Passo 22: kernel e Plymouth
+
+GRUB2 carrega o `kernel-default` e o initramfs com o parâmetro `splash`. Plymouth exibe a animação com o tema "studio".
+
+#### Passo 23: dracut-kiwi-live monta o overlay
+
+O initramfs localiza a ISO/pendrive via `CDLABEL=MultiCortex_EXO_1.0.5`. O módulo `kiwi-live`:
+
+1. Monta o SquashFS como loop read-only: `/dev/loop0` → `/run/rootfsbase`
+2. Verifica se há espaço no pendrive para a partição ext4 de persistência
+3. Se sim: cria ou monta a partição ext4. Se não: usa RAM (tmpfs)
+4. Cria o overlay:
+```bash
+mount -t overlay overlay \
+  -o lowerdir=/run/rootfsbase,upperdir=/run/overlay,workdir=/run/work \
+  /sysroot
+```
+5. `pivot_root` para `/sysroot`
+
+A partir daqui, leituras vão ao SquashFS (read-only), escritas vão ao ext4 (persistência) ou RAM.
+
+#### Passo 24: systemd inicia os serviços
+
+O systemd inicia em paralelo respeitando dependências:
+
+**`multicortex-firstboot.service`** dispara:
+```bash
+mkdir -p /var/lib/ollama /var/log/multicortex
+chmod 755 /var/lib/ollama /var/log/multicortex
+```
+Cria os diretórios que o Ollama precisa — necessário porque o bloco do `config.sh` nunca executa.
+
+**`ollama.service`** inicia:
+```
+Ollama version 0.3.6
+listening on 127.0.0.1:11434
+```
+Verifica `/var/lib/ollama/models/` — sem modelos instalados, apenas aguarda requisições.
+
+**`sshd.service`** inicia na porta 22.
+
+#### Passo 25: GDM e autologin do tux
+
+GDM lê `DISPLAYMANAGER_AUTOLOGIN=tux` do sysconfig e faz login sem senha. GNOME Shell carrega com o wallpaper do projeto.
+
+#### Passo 26: `config_osviacam.sh` — executa uma vez
+
+O `config.desktop` no autostart chama `config_osviacam.sh`:
+
+```bash
+gsettings set org.gnome.shell favorite-apps "['firefox.desktop', 'org.gnome.Terminal.desktop','Chat.desktop']"
+gsettings set org.gnome.desktop.interface gtk-theme Dark
+gsettings set org.gnome.desktop.background picture-uri "file:////usr/share/wallpapers/studio_wallpaper.jpg"
+rm /home/tux/.config/autostart/config.desktop   # se auto-remove
+```
+
+Define dock, tema Dark e wallpaper. Se deleta — não roda nas próximas inicializações.
+
+#### Passo 27: `initMulticortex.sh` — terminal de IA
+
+O `init.desktop` abre um terminal e executa:
+
+```bash
+cat /etc/multicortex.asc    # logo ASCII (se existir)
+echo "Initializing..."
+ollama run llama3.2 "Ola!"
+```
+
+`ollama run llama3.2`:
+1. Conecta em `127.0.0.1:11434`
+2. Verifica `/var/lib/ollama/models/`
+3. Se modelo não instalado: tenta download (requer internet) ou falha
+4. Se instalado: carrega na RAM/VRAM e responde
+
+#### Passo 28: instalando o perfil light
+
+Com o sistema rodando:
+
+```bash
+multicortex-models-light
+```
+
+Que executa `ollama pull` para cada modelo:
+
+| Modelo | Tamanho aproximado |
+|--------|--------------------|
+| `tinyllama:latest` | ~637 MB |
+| `phi3:mini` | ~2.2 GB |
+| `gemma3:1b` | ~815 MB |
+| `qwen3:0.6b` | ~522 MB |
+| `smollm2:1.7b` | ~1 GB |
+
+Para cada modelo o Ollama: consulta o manifesto em `registry.ollama.ai`, baixa os blobs faltantes, verifica SHA256, cria os manifests em `/var/lib/ollama/models/manifests/`.
+
+Com persistência ativa no pendrive, os modelos sobrevivem ao reinício.
+
+#### Passo 29: modelo respondendo
+
+```bash
+ollama run tinyllama "Explique o que é um motherboard em 2 linhas"
+```
+
+O Ollama tokeniza o prompt, executa o forward pass pela rede neural e retorna os tokens decodificados. Com `tinyllama` em CPU: alguns segundos. Com GPU NVIDIA: quase instantâneo.
+
+#### Resumo do fluxo completo
+
+```
+python3 gerar_iso.py
+  └─ is_root() ✓
+  └─ zypper install kiwi-ng
+  └─ git clone cabelo/multicortex-exo
+  └─ copytree → workdir/kiwi-desc/
+  └─ patch config.xml (HTTP, repos, bootstrap, NVIDIA G06)
+  └─ kiwi-ng --debug system build
+       ├─ valida config.xml
+       ├─ bootstrap: rpm instala 10 pkgs no root tree
+       ├─ image: chroot + zypper instala ~800 pkgs
+       ├─ copia overlay root/ → root tree
+       ├─ executa config.sh no chroot
+       │    ├─ autologin tux, GDM, GNOME
+       │    ├─ enable: sshd, ollama, multicortex-chat-ui
+       │    └─ ldconfig + runlevel 5 + exit 0
+       ├─ dracut: gera initramfs com módulo kiwi-live
+       ├─ mksquashfs: comprime com xz → ~1.8 GB
+       ├─ monta estrutura ISO (EFI/, LiveOS/, isolinux/)
+       └─ xorriso: gera .iso híbrido (UEFI + BIOS + pendrive)
+
+dd → pendrive
+
+UEFI → shim → GRUB2 → kernel + splash
+  └─ initramfs: monta SquashFS + overlay ext4
+  └─ systemd
+       ├─ multicortex-firstboot → mkdir /var/lib/ollama
+       ├─ ollama → listen :11434
+       ├─ sshd → listen :22
+       └─ gdm → autologin tux
+  └─ GNOME Desktop
+       ├─ config_osviacam.sh → gsettings + rm autostart (1x)
+       └─ initMulticortex.sh → ollama run llama3.2
+
+multicortex-models-light
+  └─ ollama pull: tinyllama, phi3:mini, gemma3:1b, qwen3:0.6b, smollm2:1.7b
+  └─ /var/lib/ollama/models/blobs/ (persistidos no pendrive)
+
+ollama run tinyllama "pergunta"
+  └─ carrega modelo → inferência → resposta
+```
+
+---
+
+## Como compilar a ISO — referência rápida
 
 ### Requisito: openSUSE Leap 15.6 x86_64
 
-O build foi validado neste ambiente. VMware, VirtualBox, Proxmox ou máquina física funcionam.
+VMware, VirtualBox, Proxmox ou máquina física.
 
 ### Opção 1: script Python (recomendado)
 
-O script `gerar_iso_multicortex_completo_py36.py` automatiza todas as etapas — instala dependências, clona o repo upstream, aplica patches no `config.xml` e executa o KIWI.
-
 ```bash
-# Como root:
+su -
 python3 scripts/gerar_iso_multicortex_completo_py36.py
 
-# Com limpeza total do build anterior:
+# Com limpeza total:
 python3 scripts/gerar_iso_multicortex_completo_py36.py --clean
 
-# Pulando instalação de pacotes (kiwi-ng já instalado):
+# Sem reinstalar pacotes:
 python3 scripts/gerar_iso_multicortex_completo_py36.py --no-install
 
-# Em diretório customizado:
+# Diretório customizado:
 python3 scripts/gerar_iso_multicortex_completo_py36.py --workdir /mnt/builds
 ```
 
-A ISO é gerada em `/home/hawk/builds/out/` ou `~/builds/out/`. O log completo fica em `builds/build-multicortex.log`.
+ISO em `/home/hawk/builds/out/`. Log em `builds/build-multicortex.log`.
 
 ### Opção 2: build manual
 
 ```bash
-# Instalar KIWI NG
 zypper refresh
-zypper install -y git curl wget nano xz tar gzip cpio rsync which \
+zypper install -y git curl wget xz tar gzip cpio rsync which \
     ca-certificates ca-certificates-mozilla openssl
 
 # Se kiwi-ng não estiver disponível:
@@ -875,9 +1157,7 @@ zypper --gpg-auto-import-keys refresh
 zypper install -y python311-kiwi
 kiwi-ng --version
 
-# Executar build
 mkdir -p ~/builds/out
-
 kiwi-ng --debug system build \
   --description $(pwd)/suse/x86_64/suse-leap-15.6-JeOS \
   --target-dir ~/builds/out \
@@ -899,9 +1179,9 @@ sha256sum ~/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
 | `suseConfig() is obsolete` | Função removida no KIWI 10 | Comentar `suseConfig` |
 | `suseRemoveYaST() is obsolete` | Função removida no KIWI 10 | Comentar `suseRemoveYaST` |
 | `gconftool-2: No such file or directory` | Scripts legados de tema | Já comentados neste fork |
-| Avisos `NOKEY` nos RPMs | GPG não importado | São `warning`, não `ERROR` — build prossegue normalmente |
-| Conflito de drivers NVIDIA | Versões 550 e 580 misturadas | Manter apenas pacotes G06 da mesma linha; remover `nvidia-video-G06`, `nvidia-gl-G06` se causar conflito |
-| Mirror BR falhando | `mirrorcache-br-2.opensuse.org` instável | Usar `download.opensuse.org` diretamente (já configurado no `config.xml` deste fork) |
+| Avisos `NOKEY` nos RPMs | GPG não importado | `warning`, não `ERROR` — build prossegue |
+| Conflito drivers NVIDIA | Versões 550 e 580 misturadas | Manter apenas pacotes G06 da mesma linha |
+| Mirror BR falhando | `mirrorcache-br-2` instável | Usar `download.opensuse.org` (já configurado) |
 
 ---
 
@@ -910,118 +1190,92 @@ sha256sum ~/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
 ### VMware
 
 ```
-Sistema operacional: Linux 64-bit / openSUSE 64-bit
-Firmware: UEFI
-Secure Boot: OFF
-CPU: 4 cores
-RAM: 8 GB (mínimo 4 GB)
-Disco: 40 GB
-Rede: NAT
-ISO: MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
+Sistema: Linux 64-bit / openSUSE 64-bit
+Firmware: UEFI  |  Secure Boot: OFF
+CPU: 4 cores  |  RAM: 8 GB  |  Disco: 40 GB  |  Rede: NAT
 ```
 
 ### QEMU/KVM
 
 ```bash
-qemu-system-x86_64 \
-  -m 8192 \
-  -smp 4 \
+qemu-system-x86_64 -m 8192 -smp 4 \
   -cdrom MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso \
-  -boot d \
-  -enable-kvm
+  -boot d -enable-kvm
 ```
 
 ---
 
 ## Como gravar em pendrive
 
-**Linux:**
-
 ```bash
-lsblk   # identificar o dispositivo — ex: /dev/sdb
+lsblk    # identificar /dev/sdX
 
-# Cuidado: apaga tudo no dispositivo selecionado
 sudo dd if=MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso \
         of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
-**Windows:** Rufus — selecionar GPT/UEFI para PCs modernos.
-
-**macOS e outros:** Balena Etcher.
+**Windows:** Rufus (GPT/UEFI para PCs modernos). **macOS/outros:** Balena Etcher.
 
 ---
 
 ## Comandos disponíveis na ISO
 
 ```bash
-multicortex-status        # diagnóstico completo do sistema
-multicortex-menu          # menu interativo de controle
-multicortex-models-light  # instala modelos leves via Ollama
-multicortex-models-medium # instala modelos médios via Ollama
-multicortex-models-code   # instala modelos de código via Ollama
-multicortex-models-large  # instala modelos grandes via Ollama
+multicortex-status        # diagnóstico completo
+multicortex-menu          # menu interativo (15 opções)
+multicortex-models-light  # instala modelos leves
+multicortex-models-medium # instala modelos médios
+multicortex-models-code   # instala modelos de código
+multicortex-models-large  # instala modelos grandes
 multicortex-models-list   # lista modelos instalados
 ```
 
 Aliases:
 
 ```bash
-mc-status   # → multicortex-status
-mc-menu     # → multicortex-menu
-mc-models   # → multicortex-models-list
+mc-status   mc-menu   mc-models
 ```
 
 ---
 
 ## API HTTP local do Ollama
 
-Endpoint base: `http://127.0.0.1:11434`
+Endpoint: `http://127.0.0.1:11434`
 
 ```bash
-# Listar modelos instalados
+# Listar modelos
 curl http://127.0.0.1:11434/api/tags
 
 # Geração de texto
 curl http://127.0.0.1:11434/api/generate \
   -d '{"model": "llama3.1:8b", "prompt": "Olá!", "stream": false}'
 
-# Chat multi-turno
+# Chat
 curl http://127.0.0.1:11434/api/chat \
-  -d '{
-    "model": "llama3.1:8b",
-    "messages": [{"role": "user", "content": "Explique o que é o multicortexEXO em 3 linhas."}],
-    "stream": false
-  }'
+  -d '{"model": "llama3.1:8b",
+       "messages": [{"role": "user", "content": "O que é IA local?"}],
+       "stream": false}'
 ```
 
-Manter sempre em `127.0.0.1`. Para acesso remoto: túnel SSH (`ssh -L 11434:localhost:11434 tux@<ip>`), VPN ou proxy autenticado.
+Manter em `127.0.0.1`. Para acesso remoto: `ssh -L 11434:localhost:11434 tux@<ip>`.
 
 ---
 
 ## Perfis de modelos de IA
 
-Confirmar que o Ollama está ativo antes de instalar:
-
-```bash
-systemctl status ollama
-curl http://127.0.0.1:11434/api/tags
-```
-
-### Leve — VMs, notebooks simples, 8–16 GB RAM
+### Leve — 8–16 GB RAM
 
 ```bash
 multicortex-models-light
 ```
 
-Modelos instalados via `ollama pull`:
-
-| Modelo | Parâmetros | Uso |
-|--------|-----------|-----|
-| `tinyllama:latest` | 1.1B | Ultra-leve, respostas rápidas mesmo sem GPU |
-| `phi3:mini` | 3.8B | Microsoft Phi-3, ótimo custo-benefício |
-| `gemma3:1b` | 1B | Google Gemma 3, eficiente |
-| `qwen3:0.6b` | 0.6B | Alibaba Qwen, menor modelo disponível |
-| `smollm2:1.7b` | 1.7B | HuggingFace SmolLM2, bom raciocínio para o tamanho |
+| Modelo | Params | Uso |
+|--------|--------|-----|
+| `tinyllama:latest` | 1.1B | Ultra-leve, rápido sem GPU |
+| `phi3:mini` | 3.8B | Microsoft Phi-3, bom custo-benefício |
+| `gemma3:1b` | 1B | Google Gemma 3 |
+| `qwen3:0.6b` | 0.6B | Menor modelo disponível |
+| `smollm2:1.7b` | 1.7B | HuggingFace SmolLM2 |
 
 ### Médio — 16–32 GB RAM, GPU 8–12 GB VRAM
 
@@ -1029,87 +1283,81 @@ Modelos instalados via `ollama pull`:
 multicortex-models-medium
 ```
 
-| Modelo | Parâmetros | Uso |
-|--------|-----------|-----|
-| `llama3.1:8b` | 8B | Meta LLaMA 3.1, excelente equilíbrio |
-| `llama3.2:3b` | 3B | Meta LLaMA 3.2, rápido e capaz |
-| `mistral:7b` | 7B | Mistral AI, forte em raciocínio |
-| `qwen3:8b` | 8B | Alibaba Qwen 3, multilíngue |
+| Modelo | Params | Uso |
+|--------|--------|-----|
+| `llama3.1:8b` | 8B | Meta LLaMA 3.1, equilíbrio ideal |
+| `llama3.2:3b` | 3B | Meta LLaMA 3.2, rápido |
+| `mistral:7b` | 7B | Forte em raciocínio |
+| `qwen3:8b` | 8B | Alibaba, multilíngue |
 | `gemma3:4b` | 4B | Google Gemma 3 médio |
-| `qwen2.5:7b` | 7B | Qwen 2.5, bom em português |
+| `qwen2.5:7b` | 7B | Bom em português |
 
-### Código — programação e análise técnica
+### Código — 16–32 GB RAM
 
 ```bash
 multicortex-models-code
 ```
 
-| Modelo | Parâmetros | Especialidade |
-|--------|-----------|---------------|
-| `deepseek-coder:1.3b` | 1.3B | DeepSeek Coder leve |
-| `deepseek-coder:6.7b` | 6.7B | DeepSeek Coder completo |
-| `qwen2.5-coder:7b` | 7B | Alibaba, forte em múltiplas linguagens |
-| `codegemma:7b` | 7B | Google, bom em Python e C++ |
-| `starcoder2:7b` | 7B | BigCode, treinado em 600+ linguagens |
+| Modelo | Params | Especialidade |
+|--------|--------|---------------|
+| `deepseek-coder:1.3b` | 1.3B | DeepSeek leve |
+| `deepseek-coder:6.7b` | 6.7B | DeepSeek completo |
+| `qwen2.5-coder:7b` | 7B | Múltiplas linguagens |
+| `codegemma:7b` | 7B | Python e C++ |
+| `starcoder2:7b` | 7B | 600+ linguagens |
 
-### Grande — workstation com SSD NVMe e GPU ≥12 GB VRAM
+### Grande — 32–64+ GB RAM, GPU ≥12 GB VRAM
 
 ```bash
 multicortex-models-large
 ```
 
-| Modelo | Parâmetros | Uso |
-|--------|-----------|-----|
-| `llama3.1:70b` | 70B | Meta LLaMA 3.1 full, qualidade próxima a GPT-4 |
-| `llama3.3:70b` | 70B | Meta LLaMA 3.3, mais recente |
-| `qwen2.5:32b` | 32B | Alibaba, forte em multilíngue |
+| Modelo | Params | Uso |
+|--------|--------|-----|
+| `llama3.1:70b` | 70B | Qualidade próxima a GPT-4 |
+| `llama3.3:70b` | 70B | Mais recente |
+| `qwen2.5:32b` | 32B | Multilíngue forte |
 | `qwen3:32b` | 32B | Qwen 3 médio-grande |
-| `mixtral:8x7b` | 46.7B (MoE) | Mistral Mixture of Experts |
-| `deepseek-r1:32b` | 32B | DeepSeek R1, raciocínio avançado |
+| `mixtral:8x7b` | 46.7B MoE | Mixture of Experts |
+| `deepseek-r1:32b` | 32B | Raciocínio avançado |
 
-> Sem GPU dedicada todos os perfis executam via CPU. Modelos acima de 7B serão lentos em CPU — calcule ~30s a vários minutos por resposta dependendo do hardware.
+> Sem GPU: modelos acima de 7B podem levar de 30 segundos a vários minutos por resposta.
 
 ---
 
 ## Persistência de dados
 
-A ISO usa overlay ext4. Em pendrive com espaço disponível, dados são preservados entre sessões.
-
-Diretórios críticos para persistir:
+Com pendrive e espaço disponível, dados sobrevivem ao reinício:
 
 ```
-/var/lib/ollama       modelos baixados (podem ser GBs)
-/home/tux             arquivos do usuário tux
+/var/lib/ollama       modelos (podem ser GBs)
+/home/tux             arquivos do usuário
 /var/log/multicortex  logs
 /opt/multicortex      scripts e configurações
 ```
 
-Sem persistência, modelos baixados durante a sessão são perdidos ao reiniciar. Para uso repetido, gravar em pendrive com espaço suficiente (80 GB+ para modelos médios).
+Sem persistência, modelos baixados são perdidos ao reiniciar. Para uso repetido, pendrive com ≥80 GB para modelos médios.
 
 ---
 
 ## Edição offline com SSD
 
-Para ambientes sem internet (campo, indústria, cliente isolado):
+Para ambientes sem internet:
 
-1. Em uma máquina com internet, baixar os modelos desejados:
 ```bash
+# 1. Com internet: baixar modelos
 ollama pull tinyllama:latest
 ollama pull llama3.1:8b
-ollama pull mistral:7b
-ollama pull deepseek-coder:6.7b
-```
 
-2. Copiar `/var/lib/ollama` para um SSD/NVMe externo
+# 2. Copiar para SSD externo
+rsync -av /var/lib/ollama /mnt/ssd-externo/
 
-3. No ambiente offline: inicializar a ISO com pendrive + SSD, montar o SSD e usar os modelos diretamente ou copiar para a camada persistente
-
-Gerar manifesto para controle e auditoria:
-
-```bash
+# 3. Manifesto de controle
 ollama list > MODELOS.txt
 sha256sum MODELOS.txt > MODELOS.txt.sha256
 ```
+
+No ambiente offline: inicializar ISO + SSD, montar e usar.
 
 ---
 
@@ -1117,13 +1365,7 @@ sha256sum MODELOS.txt > MODELOS.txt.sha256
 
 A ISO é **exclusivamente x86_64**. Não funciona em ARM, Raspberry Pi ou Apple Silicon.
 
-**Mínimo para boot:**
-- CPU x86_64 64 bits
-- RAM: 4 GB
-- Firmware: UEFI recomendado (BIOS legacy suportado)
-- **Secure Boot: desligado**
-
-**Por perfil de uso:**
+**Mínimo para boot:** CPU x86_64, 4 GB RAM, UEFI recomendado, **Secure Boot desligado**.
 
 | Uso | CPU | RAM | Armazenamento | GPU |
 |-----|-----|-----|---------------|-----|
@@ -1136,65 +1378,45 @@ A ISO é **exclusivamente x86_64**. Não funciona em ARM, Raspberry Pi ou Apple 
 
 ## Diagnóstico e troubleshooting
 
-### Status completo
-
 ```bash
+# Status geral
 multicortex-status
 systemctl --failed
-```
 
-### Serviços
-
-```bash
+# Serviços
 systemctl status ollama
 journalctl -u ollama -f
-journalctl -u multicortex-chat-ui -f
-```
 
-### GPU não detectada
-
-```bash
+# GPU
 lspci | grep -i nvidia
 nvidia-smi
 lsmod | grep nvidia
-```
 
-### Rede sem IP
-
-```bash
+# Rede
 ip a
 nmcli device status
-ping 8.8.8.8
-```
 
-### Ollama não responde
-
-```bash
+# Ollama não responde
 systemctl status ollama
 curl http://localhost:11434
-ollama list
-systemctl start ollama      # se estiver parado
-ollama pull llama3.2        # se o modelo não estiver instalado
+systemctl start ollama
+ollama pull llama3.2   # se modelo não instalado
 ```
 
-### Modelo lento
+**Modelo lento:** verificar com `nvidia-smi` se GPU está sendo usada. Tentar modelo menor.
 
-CPU sem GPU: 30s a vários minutos por resposta em modelos >7B. Verificar com `nvidia-smi` se a GPU está sendo usada. Tentar modelo menor do perfil leve.
-
-### ISO não inicia
-
-Verificar hash SHA256 da ISO, gravação correta no pendrive, UEFI habilitado, Secure Boot desligado. Testar em VM antes de usar em hardware.
+**ISO não inicia:** verificar SHA256, gravação correta, UEFI habilitado, Secure Boot desligado. Testar em VM primeiro.
 
 ---
 
 ## Segurança
 
-- Trocar `root/linux` e `tux/linux` antes de usar em rede, habilitar SSH ou publicar ISO
-- Manter Ollama em `127.0.0.1:11434` — nunca expor `0.0.0.0` diretamente
-- SSH: usar autenticação por chave, desativar login root por senha, configurar firewall
-- Não incluir dados de clientes, chaves, tokens ou arquivos sensíveis na ISO publicada
+- Trocar `root/linux` e `tux/linux` antes de usar em rede ou publicar ISO
+- Manter Ollama em `127.0.0.1:11434` — nunca expor `0.0.0.0`
+- SSH: autenticação por chave, desativar login root por senha, configurar firewall
+- Não incluir dados de clientes, chaves ou tokens na ISO publicada
 
-O `.gitignore` já exclui: `*.iso`, `*.key`, `*.pem`, `*.token`, `*.env`, `secrets.yaml`, `models/`, `out/`, `build/`.
+O `.gitignore` já exclui `*.iso`, `*.key`, `*.pem`, `*.token`, `*.env`, `models/`, `out/`, `build/`.
 
 ---
 
@@ -1202,28 +1424,22 @@ O `.gitignore` já exclui: `*.iso`, `*.key`, `*.pem`, `*.token`, `*.env`, `secre
 
 ### O que funciona
 
-- `config.xml` com todos os pacotes, repositórios e configurações para gerar a ISO
+- `config.xml` com todos os pacotes, repositórios e configurações
 - `config.sh` com configurações de sistema e compatibilidade com KIWI 10
-- Overlay `root/` com MOTD, versão, aliases, serviço de firstboot, rede, repositórios, scripts de sistema
-- `multicortex-status.sh` e `multicortex-menu.sh` funcionais e completos
-- Script Python de build automático com patch automático do `config.xml`
-- Documentação em `docs/`
+- Overlay `root/` com MOTD, versão, aliases, firstboot, rede, repositórios
+- `multicortex-status.sh` e `multicortex-menu.sh` funcionais
+- Script Python de build automático com patch do `config.xml`
 - Temas visuais completos (GRUB2, Plymouth, GDM, GFXBOOT)
 - ISO `MultiCortex_EXO_1.0.5` gerada e publicada
 
 ### Pendências
 
-**Bug no `config.sh`:** o bloco `MULTICORTEX EXO GENERATED CONFIG` está após o `exit 0` e nunca executa. Corrigir movendo o bloco para antes do `exit 0`.
+**Bug no `config.sh`:** o bloco `MULTICORTEX EXO GENERATED CONFIG` está após o `exit 0` e nunca executa. Mover para antes do `exit 0`.
 
-**Scripts não commitados — referenciados mas ausentes:**
-
+**Scripts não commitados:**
 ```
-scripts/build/check-build-env.sh
+scripts/build/check-build-env.sh      scripts/build/build-iso.sh
 scripts/build/install-build-deps-opensuse.sh
-scripts/build/clean-build.sh
-scripts/build/build-iso.sh
-scripts/build/check-result.sh
-scripts/models/_ollama_common.sh
 scripts/models/install-light-models.sh
 scripts/models/install-medium-models.sh
 scripts/models/install-code-models.sh
@@ -1231,13 +1447,13 @@ scripts/models/install-large-models.sh
 scripts/models/list-installed-models.sh
 ```
 
-**Binários ausentes no overlay:** `multicortex-status`, `multicortex-menu` e `multicortex-models-*` precisam existir em `/usr/local/bin/` dentro da ISO. Os links ou scripts não estão em `root/usr/local/bin/`.
+**Binários ausentes no overlay:** `multicortex-status`, `multicortex-menu` e `multicortex-models-*` precisam estar em `/usr/local/bin/` dentro da ISO.
 
-**`/etc/multicortex.asc`** — arquivo de logo ASCII referenciado pelo `initMulticortex.sh` mas não presente no overlay.
+**`/etc/multicortex.asc`** — logo ASCII referenciado pelo `initMulticortex.sh` mas não presente no overlay.
 
-**`multicortex-chat-ui.service`** — habilitado no `config.sh` mas sem arquivo `.service` no overlay.
+**`multicortex-chat-ui.service`** — habilitado mas sem arquivo `.service` no overlay.
 
-**Framework `exo`** — o script `~/bin/exo` pressupõe virtualenv instalado manualmente.
+**Framework `exo`** — `~/bin/exo` pressupõe virtualenv instalado manualmente.
 
 ---
 
@@ -1261,8 +1477,7 @@ gh release create "$TAG" \
 gh release upload "$TAG" \
   ~/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso \
   releases/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso.sha256 \
-  --repo hawkinf/multicortexEXO_fork \
-  --clobber
+  --repo hawkinf/multicortexEXO_fork --clobber
 ```
 
 ---
@@ -1273,6 +1488,6 @@ Este fork respeita a licença do projeto original [`cabelo/multicortex-exo`](htt
 
 **Projeto original:** Alessandro de Oliveira Faria (CABELO) — `cabelo@opensuse.org`
 
-**Fork e adaptações:** Aguinaldo Liesack Baptistini
+**Fork e adaptações:** Aguinaldo Liesack Baptistini — Hawk Informática
 
 > Este projeto está em desenvolvimento ativo. Usar em ambiente de teste antes de aplicar em produção. Revisar scripts antes de executar comandos administrativos. Modelos de IA podem produzir respostas incorretas — a validação de qualquer ação é responsabilidade do usuário.
