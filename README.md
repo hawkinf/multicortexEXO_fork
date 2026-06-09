@@ -17,6 +17,7 @@ Este projeto é um **fork/adaptação técnica** do projeto original [`cabelo/mu
 - [Requisitos para compilar a ISO](#requisitos-para-compilar-a-iso)
 - [Como compilar a ISO](#como-compilar-a-iso)
 - [Como testar a ISO](#como-testar-a-iso)
+- [Usuários e senhas padrão da ISO](#usuários-e-senhas-padrão-da-iso)
 - [Como gravar a ISO em pendrive](#como-gravar-a-iso-em-pendrive)
 - [Persistência de dados](#persistência-de-dados)
 - [Modelos de IA suportados](#modelos-de-ia-suportados)
@@ -476,6 +477,80 @@ qemu-system-x86_64   -m 8192   -smp 4   -cdrom MultiCortex_EXO_1.0.5.x86_64-1.15
 
 ---
 
+## Usuários e senhas padrão da ISO
+
+A imagem Live gerada a partir do `config.xml` inclui usuários locais pré-configurados para acesso inicial ao sistema.
+
+### Credenciais padrão
+
+```text
+Usuário: root
+Senha:   linux
+
+Usuário: tux
+Senha:   linux
+```
+
+Essas senhas aparecem no `config.xml` em formato de hash Unix `md5-crypt`, por exemplo:
+
+```xml
+<user password="$1$wYJUgpM5$RXMMeASDc035eX.NbYWFl0" home="/root" name="root" groups="root"/>
+<user password="$1$Ox48k8VQ$PMrwjyY9Yak/sXnWDiq2q1" home="/home/tux" name="tux" groups="users" shell="/bin/bash"/>
+```
+
+O hash não deve ser entendido como senha criptografada reversível. Ele serve apenas para validação da senha durante o login. Neste caso, ambos os hashes correspondem à senha padrão `linux`.
+
+### Uso durante testes
+
+Em ambiente Live, VM ou bancada de testes, use:
+
+```text
+Login: root
+Senha: linux
+```
+
+ou:
+
+```text
+Login: tux
+Senha: linux
+```
+
+O usuário `root` deve ser usado apenas para administração do sistema. Para uso comum, testes de interface e execução de ferramentas sem privilégios administrativos, prefira o usuário `tux`.
+
+### Alterar a senha após o boot
+
+Depois de iniciar a ISO, troque as senhas padrão se o sistema for usado em rede, com SSH habilitado ou com persistência:
+
+```bash
+passwd root
+passwd tux
+```
+
+### Alterar a senha antes de gerar a ISO
+
+Para trocar a senha já no build da ISO, gere um novo hash `md5-crypt` e substitua o campo `password` no `config.xml`:
+
+```bash
+openssl passwd -1
+```
+
+Exemplo de uso:
+
+```bash
+openssl passwd -1 'NovaSenhaForteAqui'
+```
+
+Depois substitua o hash antigo no arquivo:
+
+```xml
+<user password="NOVO_HASH_AQUI" home="/root" name="root" groups="root"/>
+```
+
+> Atenção: a senha `linux` é uma senha padrão clássica usada em imagens de teste/openSUSE/KIWI. Ela é adequada para laboratório, mas não deve ser mantida em ambiente exposto, com SSH ativo ou em uma ISO pública de produção.
+
+---
+
 ## Como gravar a ISO em pendrive
 
 ### Rufus no Windows
@@ -896,6 +971,7 @@ Recomendações:
 - não incluir chaves privadas dentro da ISO pública;
 - não embutir tokens de API no repositório;
 - não deixar SSH aberto sem senha forte ou chave;
+- trocar as senhas padrão `root/linux` e `tux/linux` antes de usar a ISO em rede, publicar uma versão final ou habilitar SSH;
 - não rodar agentes com privilégios root sem necessidade;
 - não executar comandos sugeridos por IA sem revisão;
 - não incluir dados de clientes na ISO;
