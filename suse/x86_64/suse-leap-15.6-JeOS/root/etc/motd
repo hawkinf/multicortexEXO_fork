@@ -1,4 +1,16 @@
-This is the MultiCortex powered by openSUSE 15.6 Linux System.
-Sugesttions email to: Alessandro de Oliveira Faria cabelo@opensuse.org
+MultiCortex EXO Live
 
-Have a lot of fun...
+Comandos úteis:
+  multicortex-menu
+  multicortex-status
+  multicortex-models-light
+  multicortex-models-medium
+  multicortex-models-code
+  multicortex-models-large
+  multicortex-models-list
+
+Usuários padrão desta imagem, se mantidos no config.xml:
+  root / linux
+  tux  / linux
+
+Troque as senhas antes de usar em rede ou publicar ISO final.

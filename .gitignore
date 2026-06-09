@@ -21,3 +21,30 @@ __pycache__/
 *.bak
 *.bak2
 *~
+# BEGIN MULTICORTEX EXO GENERATED IGNORE
+out/
+build/
+image-root/
+*.iso
+*.img
+*.raw
+*.qcow2
+*.vmdk
+*.log
+*.sha256
+.cache/
+models/
+.env
+*.key
+*.pem
+*.p12
+*.token
+secrets.yaml
+__pycache__/
+*.pyc
+*.tmp
+*.bak
+*.bak2
+*~
+.DS_Store
+# END MULTICORTEX EXO GENERATED IGNORE

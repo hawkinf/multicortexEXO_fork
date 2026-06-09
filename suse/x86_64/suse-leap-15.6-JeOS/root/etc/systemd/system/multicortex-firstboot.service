@@ -1,0 +1,12 @@
+[Unit]
+Description=MultiCortex EXO first boot preparation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash -lc 'mkdir -p /var/lib/ollama /var/log/multicortex; chmod 755 /var/lib/ollama /var/log/multicortex || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

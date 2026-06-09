@@ -132,3 +132,26 @@ baseSetRunlevel 5
 true
 true
 exit 0
+
+# BEGIN MULTICORTEX EXO GENERATED CONFIG
+# Preparação dos scripts e serviços MultiCortex EXO durante o build KIWI.
+echo "Configuring MultiCortex EXO helpers..."
+
+mkdir -p /var/lib/ollama /var/log/multicortex /opt/multicortex/scripts/models /opt/multicortex/scripts/system
+
+chmod 755 /opt/multicortex/scripts/models/*.sh 2>/dev/null || true
+chmod 755 /opt/multicortex/scripts/system/*.sh 2>/dev/null || true
+chmod 755 /usr/local/bin/multicortex-* 2>/dev/null || true
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable multicortex-firstboot.service 2>/dev/null || true
+    systemctl enable ollama.service 2>/dev/null || true
+    systemctl enable multicortex-chat-ui.service 2>/dev/null || true
+    systemctl enable open-webui.service 2>/dev/null || true
+fi
+
+# Segurança mínima: deixa claro no MOTD que root/tux padrão devem ser trocados.
+if [ -f /etc/motd ]; then
+    chmod 644 /etc/motd || true
+fi
+# END MULTICORTEX EXO GENERATED CONFIG
