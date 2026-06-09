@@ -1273,6 +1273,6 @@ Este fork respeita a licença do projeto original [`cabelo/multicortex-exo`](htt
 
 **Projeto original:** Alessandro de Oliveira Faria (CABELO) — `cabelo@opensuse.org`
 
-**Fork e adaptações:** Aguinaldo Liesack Baptistini — Hawk Informática
+**Fork e adaptações:** Aguinaldo Liesack Baptistini
 
 > Este projeto está em desenvolvimento ativo. Usar em ambiente de teste antes de aplicar em produção. Revisar scripts antes de executar comandos administrativos. Modelos de IA podem produzir respostas incorretas — a validação de qualquer ação é responsabilidade do usuário.
