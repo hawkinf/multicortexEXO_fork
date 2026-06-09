@@ -146,6 +146,6 @@ multicortexEXO_fork/
 
 Projeto original: **Alessandro de Oliveira Faria (CABELO)** — `cabelo@opensuse.org`
 
-Fork e adaptações: **Aguinaldo Liesack Baptistini** — Hawk Informática
+Fork e adaptações: **Aguinaldo Liesack Baptistini**
 
 Este fork respeita a licença do projeto original e as licenças de todos os componentes incluídos. Antes de redistribuir a ISO publicamente, revisar as licenças dos pacotes NVIDIA.
