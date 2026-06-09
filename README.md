@@ -1,51 +1,54 @@
 # multicortexEXO
 
-Sistema Linux Live/Instalável voltado para execução local de Inteligência Artificial, automação, agentes especializados e orquestração de múltiplos modelos de IA em ambiente controlado.
+Sistema Linux Live/Bootável baseado em **openSUSE Leap 15.6 x86_64**, voltado para execução local de Inteligência Artificial, automação, agentes especializados e orquestração de múltiplos modelos de IA em ambiente controlado.
 
-> Este projeto é um **fork** criado para permitir evolução independente, customização técnica, manutenção própria e adaptação do conceito MultiCortex para um ambiente mais prático, auditável e executável em máquinas locais, servidores, notebooks, estações de trabalho e ambientes offline.
+Este projeto é um **fork/adaptação técnica** do projeto original [`cabelo/multicortex-exo`](https://github.com/cabelo/multicortex-exo), criado para permitir evolução independente, customização, manutenção própria, geração local da ISO e adaptação do conceito MultiCortex para um ambiente prático, auditável e executável em máquinas locais, servidores, notebooks, estações de trabalho e ambientes offline.
 
 ---
 
 ## Índice
 
-* [Sobre o projeto](#sobre-o-projeto)
-* [Por que este fork foi criado](#por-que-este-fork-foi-criado)
-* [O que é o multicortexEXO](#o-que-é-o-multicortexexo)
-* [Como o sistema funciona](#como-o-sistema-funciona)
-* [Arquitetura geral](#arquitetura-geral)
-* [Requisitos para rodar a ISO](#requisitos-para-rodar-a-iso)
-* [Requisitos para compilar a ISO](#requisitos-para-compilar-a-iso)
-* [Como compilar](#como-compilar)
-* [Como gravar a ISO em pendrive](#como-gravar-a-iso-em-pendrive)
-* [Como iniciar o sistema](#como-iniciar-o-sistema)
-* [Persistência de dados](#persistência-de-dados)
-* [Modelos de IA suportados](#modelos-de-ia-suportados)
-* [Funcionamento do multicortexEXO](#funcionamento-do-multicortexexo)
-* [Estrutura do repositório](#estrutura-do-repositório)
-* [Configuração](#configuração)
-* [Logs e diagnóstico](#logs-e-diagnóstico)
-* [Segurança](#segurança)
-* [Limitações conhecidas](#limitações-conhecidas)
-* [Roadmap](#roadmap)
-* [Licença](#licença)
-* [Créditos](#créditos)
+- [Sobre o projeto](#sobre-o-projeto)
+- [Por que este fork foi criado](#por-que-este-fork-foi-criado)
+- [O que foi gerado](#o-que-foi-gerado)
+- [Como o sistema funciona](#como-o-sistema-funciona)
+- [Arquitetura geral](#arquitetura-geral)
+- [Requisitos para rodar a ISO](#requisitos-para-rodar-a-iso)
+- [Requisitos para compilar a ISO](#requisitos-para-compilar-a-iso)
+- [Como compilar a ISO](#como-compilar-a-iso)
+- [Como testar a ISO](#como-testar-a-iso)
+- [Como gravar a ISO em pendrive](#como-gravar-a-iso-em-pendrive)
+- [Persistência de dados](#persistência-de-dados)
+- [Modelos de IA suportados](#modelos-de-ia-suportados)
+- [Funcionamento do multicortexEXO](#funcionamento-do-multicortexexo)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Configuração](#configuração)
+- [Serviços](#serviços)
+- [Logs e diagnóstico](#logs-e-diagnóstico)
+- [Publicação no GitHub](#publicação-no-github)
+- [Segurança](#segurança)
+- [Limitações conhecidas](#limitações-conhecidas)
+- [Roadmap](#roadmap)
+- [Troubleshooting](#troubleshooting)
+- [Licença](#licença)
+- [Créditos](#créditos)
 
 ---
 
 ## Sobre o projeto
 
-O **multicortexEXO** é uma distribuição Linux Live/Instalável baseada em Debian/Ubuntu, criada para oferecer um ambiente pronto para uso com ferramentas de IA local, agentes, automações e modelos de linguagem executando diretamente na máquina do usuário.
+O **multicortexEXO** é uma distribuição Linux Live/Bootável baseada em **openSUSE Leap 15.6**, criada para oferecer um ambiente pronto para uso com ferramentas de IA local, agentes, automações e modelos de linguagem executando diretamente na máquina do usuário.
 
 A proposta é permitir que o usuário tenha uma estação de IA independente, com foco em:
 
-* Execução local de modelos LLM.
-* Uso em modo Live por pendrive.
-* Possibilidade de instalação em disco.
-* Operação offline quando os modelos já estiverem baixados.
-* Ambiente padronizado para testes, suporte, automação e desenvolvimento.
-* Separação de agentes por função.
-* Orquestração de tarefas entre diferentes modelos.
-* Controle maior sobre privacidade, dados e dependências externas.
+- execução local de modelos LLM;
+- uso em modo Live por ISO ou pendrive;
+- possibilidade de teste em VM;
+- operação offline quando os modelos já estiverem baixados;
+- ambiente padronizado para testes, suporte, automação e desenvolvimento;
+- separação de agentes por função;
+- orquestração de tarefas entre diferentes modelos;
+- maior controle sobre privacidade, dados e dependências externas.
 
 Em vez de depender exclusivamente de serviços externos, o projeto busca entregar uma base local, reproduzível e modificável.
 
@@ -63,29 +66,30 @@ O fork permite alterar o sistema sem depender do ritmo, das escolhas técnicas o
 
 Isso possibilita:
 
-* Ajustar scripts de build.
-* Trocar pacotes.
-* Adicionar suporte a novos modelos.
-* Modificar a interface.
-* Criar instaladores próprios.
-* Integrar ferramentas específicas.
-* Manter documentação própria.
-* Fazer correções sem aguardar upstream.
+- ajustar scripts de build;
+- trocar pacotes;
+- adaptar repositórios;
+- adicionar suporte a novos modelos;
+- modificar interface e serviços;
+- criar instaladores próprios;
+- integrar ferramentas específicas;
+- manter documentação própria;
+- fazer correções sem aguardar upstream.
 
 ### 2. Foco em uso real
 
 O multicortexEXO não foi pensado apenas como demonstração. A ideia é ser um sistema utilizável em bancada técnica, laboratório, suporte, desenvolvimento, análise, automação e uso pessoal avançado.
 
-O objetivo é que a ISO possa ser usada em cenários como:
+Cenários de uso:
 
-* Boot por pendrive.
-* Diagnóstico de máquinas.
-* Execução local de IA.
-* Ambiente de recuperação.
-* Estação temporária de trabalho.
-* Testes de modelos LLM.
-* Execução offline.
-* Demonstrações controladas.
+- boot por pendrive;
+- diagnóstico de máquinas;
+- execução local de IA;
+- estação temporária de trabalho;
+- testes de modelos LLM;
+- execução offline;
+- demonstrações controladas;
+- laboratório de automação e agentes.
 
 ### 3. IA local e soberania de dados
 
@@ -93,67 +97,77 @@ O fork busca permitir que o usuário execute IA localmente, sem enviar arquivos,
 
 Isso é importante em casos como:
 
-* Documentos privados.
-* Dados empresariais.
-* Código-fonte.
-* Laudos técnicos.
-* Logs de clientes.
-* Informações financeiras.
-* Projetos internos.
-* Dados que não devem sair da máquina.
+- documentos privados;
+- dados empresariais;
+- código-fonte;
+- laudos técnicos;
+- logs de clientes;
+- informações financeiras;
+- projetos internos;
+- dados que não devem sair da máquina.
 
 ### 4. Controle técnico
 
 Ao gerar a própria ISO, é possível saber exatamente:
 
-* Quais pacotes foram instalados.
-* Quais serviços iniciam no boot.
-* Quais modelos estão disponíveis.
-* Quais portas estão abertas.
-* Quais permissões existem.
-* Quais scripts são executados.
-* Como o ambiente é configurado.
+- quais pacotes foram instalados;
+- quais serviços iniciam no boot;
+- quais modelos estão disponíveis;
+- quais portas estão abertas;
+- quais permissões existem;
+- quais scripts são executados;
+- como o ambiente é configurado.
 
 Como diz o velho método: primeiro entenda a máquina, depois deixe a máquina trabalhar.
 
-### 5. Adaptação ao conceito multicortexEXO
-
-O multicortexEXO adiciona uma camada própria de organização, onde diferentes “córtex” ou núcleos especializados podem assumir funções diferentes dentro do sistema.
-
-Exemplo:
-
-* Um córtex para programação.
-* Um córtex para análise de documentos.
-* Um córtex para automação.
-* Um córtex para terminal Linux.
-* Um córtex para segurança.
-* Um córtex para suporte técnico.
-* Um córtex para planejamento.
-* Um córtex para execução de tarefas.
-
 ---
 
-## O que é o multicortexEXO
+## O que foi gerado
 
-O **multicortexEXO** é a camada de orquestração do sistema.
+ISO gerada com sucesso:
 
-Ele funciona como uma estrutura que organiza ferramentas, modelos e agentes de IA em blocos especializados. Em vez de tratar a IA como um único chatbot genérico, o sistema separa funções em núcleos especializados.
+```text
+MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
+```
 
-A ideia central é:
+Caminho local usado no ambiente de build:
 
-> Um problema complexo pode ser resolvido melhor quando dividido entre agentes especializados, cada um com uma função clara.
+```text
+/home/hawk/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
+```
 
-O multicortexEXO pode operar com diferentes backends de IA, como:
+Arquitetura:
 
-* Ollama.
-* llama.cpp.
-* vLLM.
-* LM Studio.
-* Open WebUI.
-* Serviços externos opcionais via API.
-* Scripts locais em Python.
-* Ferramentas de terminal.
-* Pipelines de automação.
+```text
+x86_64 / amd64 / x64 / 64 bits
+```
+
+Base:
+
+```text
+openSUSE Leap 15.6
+```
+
+Tipo:
+
+```text
+Live ISO bootável
+```
+
+Tamanho aproximado:
+
+```text
+1,8 GB
+```
+
+Build realizado com:
+
+```text
+openSUSE Leap 15.6 Server
+KIWI NG 10.2.33
+Python 3.6.15
+VMware
+```
 
 ---
 
@@ -162,45 +176,38 @@ O multicortexEXO pode operar com diferentes backends de IA, como:
 O fluxo básico do sistema é:
 
 1. O computador inicia pela ISO.
-2. O Linux Live carrega o sistema base.
-3. Serviços essenciais são iniciados.
-4. O ambiente gráfico ou terminal é carregado.
-5. O multicortexEXO inicializa seus módulos.
-6. Os modelos locais são detectados.
-7. A interface de IA é disponibilizada ao usuário.
-8. O usuário escolhe uma tarefa, agente ou modelo.
-9. O multicortexEXO encaminha a tarefa para o núcleo adequado.
-10. O resultado é exibido, salvo, exportado ou usado em uma automação.
+2. O bootloader carrega o kernel Linux e o initramfs.
+3. O sistema Live baseado em openSUSE é montado.
+4. O ambiente base é carregado.
+5. Serviços essenciais são iniciados.
+6. O ambiente gráfico/terminal é disponibilizado.
+7. O Ollama e serviços do MultiCortex podem ser iniciados.
+8. O usuário acessa modelos locais, terminal, ferramentas e automações.
+9. O sistema executa tarefas de IA local ou integrações configuradas.
 
-Exemplo prático:
+Fluxo conceitual:
 
 ```text
 Usuário
   ↓
-Interface multicortexEXO
+Interface / Terminal / Painel local
   ↓
-Orquestrador
+Serviços multicortexEXO
   ↓
-Seleciona agente adequado
+Ollama / backends locais / scripts
   ↓
-Seleciona modelo local ou remoto
+Modelos e ferramentas
   ↓
-Executa tarefa
-  ↓
-Retorna resposta
-  ↓
-Gera arquivo, comando, análise ou automação
+Resultado, arquivo, comando, análise ou automação
 ```
 
 ---
 
 ## Arquitetura geral
 
-A arquitetura sugerida do projeto é:
-
 ```text
 multicortexEXO
-├── Sistema Live Linux
+├── Sistema Live openSUSE
 │   ├── Kernel
 │   ├── Initramfs
 │   ├── SquashFS
@@ -209,70 +216,69 @@ multicortexEXO
 │
 ├── Camada de IA
 │   ├── Ollama
-│   ├── llama.cpp
-│   ├── Open WebUI
 │   ├── Modelos locais
-│   └── APIs opcionais
+│   ├── APIs opcionais
+│   └── Scripts auxiliares
 │
-├── Orquestrador multicortexEXO
-│   ├── Agente programador
-│   ├── Agente técnico
-│   ├── Agente pesquisador
-│   ├── Agente shell
-│   ├── Agente documento
-│   ├── Agente segurança
-│   └── Agente automação
+├── Serviços
+│   ├── sshd
+│   ├── ollama
+│   └── multicortex-chat-ui
 │
 ├── Ferramentas
 │   ├── Python
 │   ├── Git
-│   ├── Docker opcional
-│   ├── Editores
-│   ├── Terminal
-│   └── Utilitários de diagnóstico
+│   ├── Shell
+│   ├── Utilitários Linux
+│   └── Diagnóstico
 │
 └── Interface
     ├── Terminal
-    ├── Painel web local
-    ├── Atalhos gráficos
-    └── Scripts auxiliares
+    ├── Ambiente gráfico GNOME
+    ├── Painel local
+    └── Scripts de automação
 ```
 
 ---
 
 ## Requisitos para rodar a ISO
 
-Os requisitos dependem dos modelos de IA que serão executados.
-
-### Requisitos mínimos
-
-Indicado apenas para boot, testes leves e modelos pequenos.
+### Mínimo para dar boot
 
 ```text
-CPU: x86_64
-RAM: 8 GB
-Armazenamento: pendrive de 16 GB
+CPU: Intel/AMD 64 bits
+Arquitetura: x86_64 / amd64 / x64
+RAM: 4 GB
+Boot: UEFI recomendado
+Secure Boot: desligado
+Rede: recomendada
 GPU: não obrigatória
-Boot: UEFI ou Legacy, conforme build da ISO
-Internet: necessária apenas para baixar modelos ou atualizações
 ```
 
-### Requisitos recomendados
-
-Indicado para uso real com modelos pequenos e médios.
+### Recomendado para uso normal
 
 ```text
 CPU: Intel Core i5/i7 ou AMD Ryzen 5/7
-RAM: 16 GB ou mais
-Armazenamento: pendrive USB 3.0 de 32 GB ou SSD externo
-GPU: NVIDIA com 6 GB ou mais de VRAM, opcional
-Boot: UEFI recomendado
+Núcleos: 4 ou mais
+RAM: 8 GB ou mais
+Armazenamento: 40 GB ou mais se for instalar/testar persistência
+GPU: Intel, AMD ou NVIDIA
+Boot: UEFI
+Secure Boot: OFF
 Internet: recomendada na primeira configuração
 ```
 
-### Requisitos ideais
+### Recomendado para IA local/Ollama
 
-Indicado para modelos maiores, uso com interface web e múltiplos agentes.
+```text
+CPU: 6 a 8 núcleos
+RAM: 16 GB ou mais
+Disco: 80 GB ou mais
+GPU NVIDIA: opcional, mas recomendada
+VRAM: 8 GB ou mais para modelos médios
+```
+
+### Ideal para modelos maiores
 
 ```text
 CPU: Intel Core i7/i9 ou AMD Ryzen 7/9
@@ -280,127 +286,18 @@ RAM: 32 GB a 64 GB
 Armazenamento: SSD NVMe ou SSD externo de 128 GB ou mais
 GPU: NVIDIA com 12 GB ou mais de VRAM
 Boot: UEFI
-Internet: recomendada para baixar modelos e dependências
 ```
 
-### Observação sobre GPU
-
-O sistema pode funcionar sem GPU dedicada, usando CPU. Porém, modelos maiores serão lentos.
-
-Para aceleração por GPU, recomenda-se:
-
-* Placa NVIDIA.
-* Driver compatível.
-* CUDA configurado.
-* Backend compatível com GPU.
-
-Em máquinas antigas, o ideal é usar modelos quantizados menores.
-
----
-
-## Requisitos da ISO
-
-Para que a ISO funcione corretamente, ela deve conter:
-
-### Sistema base
-
-* Kernel Linux compatível com o hardware alvo.
-* Initramfs funcional.
-* Sistema de arquivos SquashFS.
-* Bootloader GRUB ou ISOLINUX.
-* Suporte a UEFI.
-* Suporte opcional a Legacy BIOS.
-* Pacotes essenciais de rede.
-* Suporte a teclado ABNT2, se necessário.
-* Locale configurado para pt_BR.UTF-8, se desejado.
-
-### Pacotes essenciais
-
-Recomendado incluir:
-
-```text
-git
-curl
-wget
-nano
-vim
-htop
-btop
-python3
-python3-pip
-python3-venv
-build-essential
-ca-certificates
-gnupg
-lsblk
-parted
-gparted
-rsync
-openssh-client
-openssh-server opcional
-network-manager
-```
-
-### Pacotes de IA
-
-Dependendo do objetivo da ISO:
-
-```text
-ollama
-llama.cpp
-open-webui opcional
-python3-transformers opcional
-python3-torch opcional
-docker opcional
-docker-compose opcional
-```
-
-### Requisitos de boot
-
-A ISO deve ser híbrida, podendo ser gravada em pendrive com ferramentas como:
-
-* Rufus.
-* Balena Etcher.
-* Ventoy.
-* dd no Linux.
-* Raspberry Pi Imager, se compatível.
-
-### Persistência
-
-Para salvar modelos, configurações e histórico, recomenda-se criar uma partição de persistência.
-
-Exemplo de label:
-
-```text
-persistence
-```
-
-Arquivo de configuração típico:
-
-```text
-/persistence.conf
-```
-
-Conteúdo:
-
-```text
-/ union
-```
-
-Sem persistência, o sistema volta ao estado original após reiniciar.
+Sem GPU dedicada, o sistema pode funcionar via CPU, porém modelos maiores serão lentos.
 
 ---
 
 ## Requisitos para compilar a ISO
 
-A compilação deve ser feita preferencialmente em Linux.
-
 ### Sistema recomendado para build
 
 ```text
-Debian 12 ou superior
-Ubuntu 22.04 ou superior
-Ubuntu 24.04 ou superior
+openSUSE Leap 15.6 x86_64
 ```
 
 ### Hardware recomendado para build
@@ -408,115 +305,190 @@ Ubuntu 24.04 ou superior
 ```text
 CPU: 4 núcleos ou mais
 RAM: 8 GB ou mais
-Disco livre: 40 GB ou mais
+Disco livre: 100 GB ou mais
 Internet: obrigatória para baixar pacotes
+VM: VMware, VirtualBox, Proxmox ou máquina física
 ```
 
 ### Pacotes necessários
 
-Em Debian/Ubuntu:
+Como root:
 
 ```bash
-sudo apt update
-sudo apt install -y \
-  git \
-  live-build \
-  debootstrap \
-  squashfs-tools \
-  xorriso \
-  isolinux \
-  syslinux-common \
-  grub-pc-bin \
-  grub-efi-amd64-bin \
-  mtools \
-  dosfstools \
-  curl \
-  wget \
-  ca-certificates
+zypper refresh
+zypper install -y git curl wget nano xz tar gzip cpio rsync which ca-certificates ca-certificates-mozilla openssl
+```
+
+Verificar o KIWI:
+
+```bash
+kiwi-ng --version
+```
+
+Se o KIWI não estiver instalado:
+
+```bash
+zypper ar -f https://download.opensuse.org/repositories/Virtualization:/Appliances:/Builder/openSUSE_Leap_15.6/ kiwi-builder
+zypper --gpg-auto-import-keys refresh
+zypper install -y python311-kiwi
+```
+
+Se o sistema já tiver `python311-kiwi`, não aceite downgrade para `python3-kiwi`.
+
+---
+
+## Como compilar a ISO
+
+### 1. Clonar o projeto original
+
+```bash
+cd /home/hawk
+mkdir -p builds
+cd builds
+
+git clone https://github.com/cabelo/multicortex-exo.git
+```
+
+### 2. Copiar a descrição KIWI
+
+```bash
+cd /home/hawk/builds
+
+rm -rf kiwi-desc out
+mkdir -p kiwi-desc out
+
+cp -a multicortex-exo/suse/x86_64/suse-leap-15.6-JeOS/. kiwi-desc/
+```
+
+### 3. Ajustar `config.xml`
+
+O projeto usa repositórios openSUSE Leap 15.6 e repositórios OBS. Para build local, a versão funcional utilizou:
+
+```text
+http://download.opensuse.org/distribution/leap/15.6/repo/oss/
+http://download.opensuse.org/update/leap/15.6/oss/
+http://download.opensuse.org/distribution/leap/15.6/repo/non-oss/
+http://download.opensuse.org/update/leap/15.6/non-oss/
+https://download.nvidia.com/opensuse/leap/15.6/
+```
+
+Evite o mirror brasileiro `mirrorcache-br-2.opensuse.org` se ele falhar durante o download.
+
+### 4. Ajustar pacotes NVIDIA
+
+O build funcional manteve suporte NVIDIA, evitando mistura de versões 550 e 580.
+
+Pacotes usados/garantidos:
+
+```text
+nvidia-common-G06
+nvidia-compute-G06
+nvidia-compute-utils-G06
+nvidia-utils-G06
+nvidia-driver-G06-kmp-default
+```
+
+Caso o solver do `zypper` reclame de conflitos, remova pacotes extras que puxem uma linha diferente, como:
+
+```text
+nvidia-video-G06
+nvidia-gl-G06
+kernel-firmware-nvidia-gspx-G06
+```
+
+### 5. Ajustar `config.sh` para KIWI 10.x
+
+O `config.sh` original usa funções antigas do SUSE Studio/KIWI. No KIWI 10.x, algumas são obsoletas ou inexistentes.
+
+Foram removidas ou comentadas:
+
+```text
+baseMount
+baseCleanMount
+suseConfig
+suseRemoveYaST
+```
+
+Comandos sensíveis foram protegidos com `|| true` ou checagens de existência:
+
+```bash
+[ -f /image/.profile ] && cp /image/.profile /studio/profile || true
+[ -f /image/config.xml ] && cp /image/config.xml /studio/config.xml || true
+[ -f /etc/vimrc ] && sed -i -e's/^syntax on/" syntax on/' /etc/vimrc || true
+```
+
+Também foram desativados scripts legados de tema que dependiam de `gconftool-2`/`dconf` no chroot:
+
+```bash
+# sh /studio/configure_gdm_theme.sh removido
+# sh /studio/configure_gnome_background.sh removido
+```
+
+### 6. Rodar o build
+
+```bash
+cd /home/hawk/builds
+
+rm -rf /home/hawk/builds/out
+mkdir -p /home/hawk/builds/out
+
+kiwi-ng --debug system build   --description /home/hawk/builds/kiwi-desc   --target-dir /home/hawk/builds/out   2>&1 | tee /home/hawk/builds/build-multicortex.log
+```
+
+### 7. Verificar a ISO
+
+```bash
+find /home/hawk/builds/out -maxdepth 3 -type f -name "*.iso" -ls
+```
+
+Resultado esperado:
+
+```text
+/home/hawk/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
 ```
 
 ---
 
-## Como compilar
+## Como testar a ISO
 
-Clone o repositório:
+### VMware
 
-```bash
-git clone ALTERAR_AQUI_URL_DO_REPOSITORIO multicortexEXO
-cd multicortexEXO
-```
-
-Atualize submódulos, se existirem:
-
-```bash
-git submodule update --init --recursive
-```
-
-Dê permissão aos scripts:
-
-```bash
-chmod +x scripts/*.sh
-```
-
-Execute a preparação do ambiente:
-
-```bash
-./scripts/prepare-build.sh
-```
-
-Compile a ISO:
-
-```bash
-./scripts/build-iso.sh
-```
-
-Se o projeto usa `live-build` diretamente, o processo pode ser:
-
-```bash
-sudo lb clean
-sudo lb config
-sudo lb build
-```
-
-Ao final, a ISO deve ser gerada em um caminho semelhante a:
+Crie uma nova VM:
 
 ```text
-build/multicortexEXO.iso
+Sistema: Linux 64-bit / openSUSE 64-bit
+Firmware: UEFI
+Secure Boot: OFF
+CPU: 2 a 4 cores
+RAM: 4 GB mínimo, 8 GB recomendado
+Disco: 40 GB
+Rede: NAT
+ISO: MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
 ```
 
-ou:
+Inicie o boot pela ISO.
 
-```text
-live-image-amd64.hybrid.iso
-```
-
-Renomeie a ISO final de forma padronizada:
+### QEMU/KVM
 
 ```bash
-mv live-image-amd64.hybrid.iso multicortexEXO-amd64.iso
-```
-
-Gere o hash SHA256:
-
-```bash
-sha256sum multicortexEXO-amd64.iso > multicortexEXO-amd64.iso.sha256
+qemu-system-x86_64   -m 8192   -smp 4   -cdrom MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso   -boot d   -enable-kvm
 ```
 
 ---
 
 ## Como gravar a ISO em pendrive
 
-### Opção 1: Rufus no Windows
+### Rufus no Windows
 
 1. Abra o Rufus.
 2. Selecione o pendrive.
-3. Selecione a ISO `multicortexEXO-amd64.iso`.
-4. Escolha GPT/UEFI, se o computador for moderno.
+3. Selecione a ISO `MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso`.
+4. Escolha GPT/UEFI para computadores modernos.
 5. Clique em iniciar.
 6. Aguarde a gravação.
 7. Reinicie o computador pelo pendrive.
 
-### Opção 2: Balena Etcher
+### Balena Etcher
 
 1. Abra o Balena Etcher.
 2. Selecione a ISO.
@@ -524,99 +496,48 @@ sha256sum multicortexEXO-amd64.iso > multicortexEXO-amd64.iso.sha256
 4. Clique em Flash.
 5. Aguarde a conclusão.
 
-### Opção 3: Linux com dd
+### Linux com `dd`
 
 Atenção: o comando abaixo apaga completamente o disco selecionado.
-
-Liste os discos:
 
 ```bash
 lsblk
 ```
 
-Grave a ISO:
-
 ```bash
-sudo dd if=multicortexEXO-amd64.iso of=/dev/sdX bs=4M status=progress conv=fsync
+sudo dd if=MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso of=/dev/sdX bs=4M status=progress conv=fsync
 ```
 
 Substitua `/dev/sdX` pelo dispositivo correto.
 
 ---
 
-## Como iniciar o sistema
-
-1. Insira o pendrive.
-2. Ligue o computador.
-3. Acesse o menu de boot.
-4. Escolha o pendrive.
-5. Selecione uma das opções:
-
-```text
-multicortexEXO Live
-multicortexEXO Live com persistência
-multicortexEXO modo seguro
-Instalar multicortexEXO
-```
-
-Após o boot, o sistema carregará o ambiente base.
-
-Se houver interface gráfica, acesse o painel do multicortexEXO pelo atalho na área de trabalho ou pelo navegador local.
-
-Exemplo:
-
-```text
-http://localhost:3000
-http://localhost:8080
-http://localhost:11434
-```
-
-As portas podem variar conforme a configuração do projeto.
-
----
-
 ## Persistência de dados
 
-Por padrão, uma ISO Live não salva alterações após reiniciar.
+A ISO foi gerada como Live ISO. Dependendo da configuração do KIWI e do modo de boot, pode haver suporte a persistência híbrida.
 
-Para manter dados, modelos e configurações, use persistência.
-
-Itens que podem ser persistidos:
-
-* Modelos baixados.
-* Configuração dos agentes.
-* Histórico de conversas.
-* Scripts criados.
-* Chaves locais.
-* Configurações de rede.
-* Arquivos do usuário.
-* Bancos vetoriais.
-* Índices de documentos.
-
-Diretórios recomendados para persistência:
+Itens recomendados para persistência:
 
 ```text
 /home
-/opt/multicortexEXO
 /var/lib/ollama
-/var/lib/open-webui
+/opt/multicortexEXO
+/var/log
 ```
 
-A persistência deve ser usada com cuidado. Em ambiente técnico, o velho princípio ainda vale: backup antes, experiência depois.
+Sem persistência, alterações feitas durante a sessão Live podem ser perdidas ao reiniciar.
 
 ---
 
 ## Modelos de IA suportados
 
-O sistema pode ser adaptado para diversos modelos, dependendo do backend usado.
+A disponibilidade depende do backend usado, da RAM, da GPU e dos modelos instalados.
 
 ### Modelos leves
 
-Indicados para máquinas com pouca RAM:
-
 ```text
-Phi
 TinyLlama
+Phi
 Gemma pequeno
 Qwen pequeno
 Llama quantizado pequeno
@@ -624,8 +545,6 @@ Mistral quantizado
 ```
 
 ### Modelos médios
-
-Indicados para máquinas com 16 GB a 32 GB de RAM:
 
 ```text
 Llama 3.x 8B quantizado
@@ -637,8 +556,6 @@ DeepSeek Coder pequeno/médio
 
 ### Modelos maiores
 
-Indicados para máquinas com bastante RAM ou GPU:
-
 ```text
 Llama 70B quantizado
 Qwen 32B
@@ -647,27 +564,23 @@ DeepSeek maior
 Modelos especializados em código
 ```
 
-A disponibilidade depende de licença, tamanho, hardware e backend.
-
 ---
 
 ## Funcionamento do multicortexEXO
 
 O multicortexEXO é a camada lógica do sistema. Ele organiza a execução da IA em múltiplos núcleos funcionais.
 
-Cada núcleo, ou “córtex”, possui uma função específica.
-
 ### Cortex Shell
 
-Responsável por tarefas de terminal e sistema.
+Responsável por terminal e sistema.
 
 Exemplos:
 
-* Gerar comandos Linux.
-* Explicar logs.
-* Criar scripts Bash.
-* Diagnosticar rede.
-* Automatizar tarefas.
+- gerar comandos Linux;
+- explicar logs;
+- criar scripts Bash;
+- diagnosticar rede;
+- automatizar tarefas.
 
 ### Cortex Code
 
@@ -675,12 +588,12 @@ Responsável por programação.
 
 Exemplos:
 
-* Criar código.
-* Revisar código.
-* Explicar erros.
-* Gerar testes.
-* Refatorar projetos.
-* Criar documentação técnica.
+- criar código;
+- revisar código;
+- explicar erros;
+- gerar testes;
+- refatorar projetos;
+- criar documentação técnica.
 
 ### Cortex Docs
 
@@ -688,12 +601,12 @@ Responsável por documentos.
 
 Exemplos:
 
-* Ler arquivos.
-* Resumir PDFs.
-* Criar relatórios.
-* Gerar README.
-* Criar manuais.
-* Organizar documentação.
+- ler arquivos;
+- resumir PDFs;
+- criar relatórios;
+- gerar README;
+- criar manuais;
+- organizar documentação.
 
 ### Cortex Security
 
@@ -701,12 +614,12 @@ Responsável por análise defensiva e segurança.
 
 Exemplos:
 
-* Analisar logs.
-* Verificar configurações.
-* Sugerir hardening.
-* Identificar riscos.
-* Avaliar permissões.
-* Criar checklist defensivo.
+- analisar logs;
+- verificar configurações;
+- sugerir hardening;
+- identificar riscos;
+- avaliar permissões;
+- criar checklist defensivo.
 
 ### Cortex Support
 
@@ -714,24 +627,12 @@ Responsável por suporte técnico.
 
 Exemplos:
 
-* Diagnóstico de Windows.
-* Diagnóstico de Linux.
-* Recuperação de ambiente.
-* Checklist de atendimento.
-* Geração de laudo técnico.
-* Organização de procedimentos.
-
-### Cortex Research
-
-Responsável por pesquisa e comparação.
-
-Exemplos:
-
-* Comparar soluções.
-* Avaliar tecnologias.
-* Organizar fontes.
-* Criar matrizes de decisão.
-* Gerar estudos técnicos.
+- diagnóstico de Windows;
+- diagnóstico de Linux;
+- recuperação de ambiente;
+- checklist de atendimento;
+- geração de laudo técnico;
+- organização de procedimentos.
 
 ### Cortex Automation
 
@@ -739,212 +640,102 @@ Responsável por automações.
 
 Exemplos:
 
-* Scripts Python.
-* Rotinas agendadas.
-* Processamento de arquivos.
-* Integração com APIs.
-* Execução de pipelines.
-
----
-
-## Fluxo interno do multicortexEXO
-
-O fluxo interno sugerido é:
-
-```text
-Entrada do usuário
-  ↓
-Classificação da tarefa
-  ↓
-Escolha do córtex adequado
-  ↓
-Escolha do modelo adequado
-  ↓
-Execução local ou remota
-  ↓
-Validação do resultado
-  ↓
-Entrega ao usuário
-  ↓
-Registro em log, se habilitado
-```
-
-Exemplo:
-
-```text
-Pedido: "Crie um script para instalar pacotes no Debian"
-
-Classificação:
-  Tipo: programação + shell
-
-Cortex selecionado:
-  Cortex Shell
-  Cortex Code
-
-Modelo:
-  Modelo local de código
-
-Saída:
-  Script Bash validado e explicado
-```
+- scripts Python;
+- rotinas agendadas;
+- processamento de arquivos;
+- integração com APIs;
+- execução de pipelines.
 
 ---
 
 ## Estrutura do repositório
 
-Estrutura sugerida:
+Estrutura recomendada do fork:
 
 ```text
-multicortexEXO/
+multicortexEXO_fork/
 ├── README.md
-├── LICENSE
-├── CHANGELOG.md
+├── .gitignore
 ├── docs/
-│   ├── arquitetura.md
-│   ├── instalacao.md
-│   ├── modelos.md
-│   └── troubleshooting.md
+│   ├── documentacao_multicortex_exo_bootable_opensuse.md
+│   └── documentacao_multicortex_exo_bootable_opensuse.docx
 │
 ├── scripts/
-│   ├── prepare-build.sh
-│   ├── build-iso.sh
-│   ├── clean-build.sh
-│   ├── install-models.sh
-│   └── first-boot.sh
+│   └── gerar_iso_multicortex_completo_py36.py
 │
-├── config/
-│   ├── packages.list
-│   ├── services.list
-│   ├── multicortexexo.yaml
-│   └── persistence.conf
+├── patches/
+│   └── notas-build-opensuse-leap-15.6.md
 │
-├── live-build/
-│   ├── config/
-│   ├── includes.chroot/
-│   ├── includes.binary/
-│   └── hooks/
+├── releases/
+│   └── MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso.sha256
 │
-├── multicortexEXO/
-│   ├── core/
-│   ├── agents/
-│   ├── backends/
-│   ├── tools/
-│   └── ui/
-│
-└── build/
-    └── output/
+└── suse/
+    └── x86_64/
+        └── suse-leap-15.6-JeOS/
+            ├── config.xml
+            ├── config.sh
+            └── demais arquivos KIWI
 ```
 
 ---
 
 ## Configuração
 
-Arquivo principal sugerido:
+Arquivo principal do build:
 
 ```text
-config/multicortexexo.yaml
+suse/x86_64/suse-leap-15.6-JeOS/config.xml
 ```
 
-Exemplo:
+Script de configuração da imagem:
 
-```yaml
-system:
-  name: multicortexEXO
-  mode: live
-  language: pt-BR
-  persistence: true
+```text
+suse/x86_64/suse-leap-15.6-JeOS/config.sh
+```
 
-ai:
-  default_backend: ollama
-  default_model: llama3
-  allow_remote_api: false
+Serviços ativados no `config.sh`:
 
-backends:
-  ollama:
-    enabled: true
-    host: http://localhost:11434
-
-  llama_cpp:
-    enabled: false
-    models_path: /opt/models
-
-  openai_compatible:
-    enabled: false
-    base_url: ""
-    api_key_env: "OPENAI_API_KEY"
-
-agents:
-  shell:
-    enabled: true
-  code:
-    enabled: true
-  docs:
-    enabled: true
-  security:
-    enabled: true
-  support:
-    enabled: true
-  research:
-    enabled: true
-  automation:
-    enabled: true
-
-logs:
-  enabled: true
-  path: /var/log/multicortexEXO
+```text
+sshd
+ollama
+multicortex-chat-ui
 ```
 
 ---
 
 ## Serviços
 
-Serviços comuns que podem ser iniciados com o sistema:
-
-```text
-ollama.service
-open-webui.service
-multicortexexo.service
-ssh.service opcional
-docker.service opcional
-```
-
 Verificar status:
 
 ```bash
-systemctl status multicortexexo
+systemctl status sshd
 systemctl status ollama
+systemctl status multicortex-chat-ui
 ```
 
 Iniciar manualmente:
 
 ```bash
-sudo systemctl start multicortexexo
+sudo systemctl start ollama
+sudo systemctl start multicortex-chat-ui
 ```
 
 Parar:
 
 ```bash
-sudo systemctl stop multicortexexo
+sudo systemctl stop ollama
+sudo systemctl stop multicortex-chat-ui
 ```
 
 ---
 
 ## Logs e diagnóstico
 
-Logs principais:
-
-```text
-/var/log/multicortexEXO/
-/var/log/syslog
-/var/log/boot.log
-~/.multicortexEXO/logs/
-```
-
 Comandos úteis:
 
 ```bash
-journalctl -u multicortexexo -f
 journalctl -u ollama -f
+journalctl -u multicortex-chat-ui -f
 dmesg
 lsblk
 free -h
@@ -973,24 +764,147 @@ ollama run llama3
 
 ---
 
+## Publicação no GitHub
+
+### Criar pasta local do fork
+
+```bash
+cd /home/hawk
+
+rm -rf /home/hawk/multicortexEXO_fork
+mkdir -p /home/hawk/multicortexEXO_fork
+```
+
+Copiar o conteúdo original sem o `.git`:
+
+```bash
+rsync -a   --exclude='.git'   /home/hawk/builds/multicortex-exo/   /home/hawk/multicortexEXO_fork/
+```
+
+Copiar arquivos corrigidos:
+
+```bash
+cp -a /home/hawk/builds/kiwi-desc/config.xml   /home/hawk/multicortexEXO_fork/suse/x86_64/suse-leap-15.6-JeOS/config.xml
+
+cp -a /home/hawk/builds/kiwi-desc/config.sh   /home/hawk/multicortexEXO_fork/suse/x86_64/suse-leap-15.6-JeOS/config.sh
+```
+
+Criar estrutura auxiliar:
+
+```bash
+mkdir -p /home/hawk/multicortexEXO_fork/scripts
+mkdir -p /home/hawk/multicortexEXO_fork/docs
+mkdir -p /home/hawk/multicortexEXO_fork/patches
+mkdir -p /home/hawk/multicortexEXO_fork/releases
+```
+
+Copiar script de build:
+
+```bash
+cp -a /home/hawk/gerar_iso_multicortex_completo_py36.py   /home/hawk/multicortexEXO_fork/scripts/
+```
+
+Gerar checksum:
+
+```bash
+sha256sum /home/hawk/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso   > /home/hawk/multicortexEXO_fork/releases/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso.sha256
+```
+
+### Criar `.gitignore`
+
+```bash
+cd /home/hawk/multicortexEXO_fork
+
+cat > .gitignore <<'EOF'
+out/
+build/
+image-root/
+*.iso
+*.raw
+*.qcow2
+*.img
+*.vmdk
+*.log
+.cache/
+__pycache__/
+*.pyc
+*.tmp
+*.bak
+*.bak2
+*~
+EOF
+```
+
+### Inicializar Git
+
+```bash
+cd /home/hawk/multicortexEXO_fork
+
+git init
+git branch -M main
+git config user.name "Aguinaldo"
+git config user.email "hawkinf@gmail.com"
+```
+
+### Commit inicial
+
+```bash
+git add .
+git commit -m "Initial MultiCortex EXO fork with KIWI 10 compatibility"
+```
+
+### Criar repositório no GitHub
+
+```bash
+gh repo create hawkinf/multicortexEXO_fork   --public   --source=.   --remote=origin   --push
+```
+
+Para privado:
+
+```bash
+gh repo create hawkinf/multicortexEXO_fork   --private   --source=.   --remote=origin   --push
+```
+
+### Se o repositório já existir
+
+```bash
+cd /home/hawk/multicortexEXO_fork
+
+git remote remove origin 2>/dev/null || true
+git remote add origin https://github.com/hawkinf/multicortexEXO_fork.git
+git push -u origin main
+```
+
+### Publicar ISO em GitHub Release
+
+A ISO não deve ser enviada no commit Git. Ela deve ser publicada como asset de release.
+
+```bash
+cd /home/hawk/multicortexEXO_fork
+
+gh release create v1.0.5-leap15.6   /home/hawk/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso   /home/hawk/multicortexEXO_fork/releases/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso.sha256   --title "MultiCortex EXO 1.0.5 - openSUSE Leap 15.6 x86_64"   --notes "ISO bootável do MultiCortex EXO baseada em openSUSE Leap 15.6, arquitetura x86_64. Gerada com ajustes de compatibilidade para KIWI 10.x."
+```
+
+---
+
 ## Segurança
 
 O multicortexEXO deve ser tratado como um sistema operacional completo.
 
 Recomendações:
 
-* Não incluir chaves privadas dentro da ISO pública.
-* Não embutir tokens de API no repositório.
-* Não deixar SSH aberto sem senha forte ou chave.
-* Não rodar agentes com privilégios root sem necessidade.
-* Não executar comandos sugeridos por IA sem revisão.
-* Não incluir dados de clientes na ISO.
-* Validar hashes de arquivos baixados.
-* Manter os pacotes atualizados.
-* Separar ambiente de teste e produção.
-* Usar persistência criptografada quando houver dados sensíveis.
+- não incluir chaves privadas dentro da ISO pública;
+- não embutir tokens de API no repositório;
+- não deixar SSH aberto sem senha forte ou chave;
+- não rodar agentes com privilégios root sem necessidade;
+- não executar comandos sugeridos por IA sem revisão;
+- não incluir dados de clientes na ISO;
+- validar hashes de arquivos baixados;
+- manter pacotes atualizados;
+- separar ambiente de teste e produção;
+- usar persistência criptografada quando houver dados sensíveis.
 
-### Arquivos que não devem ser commitados
+Arquivos que não devem ser commitados:
 
 ```text
 .env
@@ -1001,6 +915,7 @@ Recomendações:
 secrets.yaml
 models/
 build/
+out/
 *.iso
 *.img
 ```
@@ -1009,120 +924,15 @@ build/
 
 ## Limitações conhecidas
 
-* Modelos grandes exigem muita RAM ou GPU.
-* Boot Live pode ser mais lento em pendrive USB 2.0.
-* Algumas GPUs podem exigir drivers proprietários.
-* Secure Boot pode impedir o carregamento de alguns módulos.
-* Sem persistência, modelos baixados são perdidos ao reiniciar.
-* Execução por CPU pode ser lenta.
-* Nem todo backend suporta aceleração por GPU em todo hardware.
-* Algumas ferramentas podem exigir internet na primeira execução.
-
----
-
-## Boas práticas de uso
-
-1. Testar primeiro em máquina virtual.
-2. Validar boot por Ventoy ou Rufus.
-3. Gerar hash SHA256 da ISO.
-4. Manter uma ISO limpa e uma ISO experimental.
-5. Documentar alterações em `CHANGELOG.md`.
-6. Separar modelos pequenos, médios e grandes.
-7. Não misturar dados pessoais com builds públicos.
-8. Fazer backup da persistência.
-9. Testar em hardware real antes de distribuir.
-10. Revisar scripts que executam comandos administrativos.
-
----
-
-## Build em máquina virtual
-
-É possível testar a ISO em:
-
-* VMware Workstation.
-* VirtualBox.
-* QEMU/KVM.
-* Proxmox.
-* Hyper-V.
-
-Exemplo com QEMU:
-
-```bash
-qemu-system-x86_64 \
-  -m 8192 \
-  -smp 4 \
-  -cdrom multicortexEXO-amd64.iso \
-  -boot d \
-  -enable-kvm
-```
-
-Com disco virtual:
-
-```bash
-qemu-img create -f qcow2 multicortexEXO-test.qcow2 64G
-
-qemu-system-x86_64 \
-  -m 8192 \
-  -smp 4 \
-  -cdrom multicortexEXO-amd64.iso \
-  -hda multicortexEXO-test.qcow2 \
-  -boot d \
-  -enable-kvm
-```
-
----
-
-## Como atualizar o fork
-
-Adicionar upstream original, se aplicável:
-
-```bash
-git remote add upstream ALTERAR_AQUI_URL_DO_PROJETO_ORIGINAL
-```
-
-Buscar atualizações:
-
-```bash
-git fetch upstream
-```
-
-Mesclar alterações:
-
-```bash
-git merge upstream/main
-```
-
-Enviar para o fork:
-
-```bash
-git push origin main
-```
-
-Caso o projeto original use outro branch principal, ajuste `main` para o nome correto.
-
----
-
-## Versionamento
-
-Sugestão de padrão:
-
-```text
-0.1.0
-0.2.0
-0.3.0
-```
-
-Para builds de ISO:
-
-```text
-multicortexEXO-amd64-0.1.0-YYYYMMDD.iso
-```
-
-Exemplo:
-
-```text
-multicortexEXO-amd64-0.1.0-20260609.iso
-```
+- Modelos grandes exigem muita RAM ou GPU.
+- Boot Live pode ser mais lento em pendrive USB 2.0.
+- Algumas GPUs podem exigir drivers proprietários.
+- Secure Boot pode impedir o carregamento de alguns módulos.
+- Sem persistência, modelos baixados podem ser perdidos ao reiniciar.
+- Execução por CPU pode ser lenta.
+- Nem todo backend suporta aceleração por GPU em todo hardware.
+- Algumas ferramentas podem exigir internet na primeira execução.
+- Esta ISO é x86_64; não roda em ARM/Raspberry Pi/Mac Apple Silicon.
 
 ---
 
@@ -1130,21 +940,21 @@ multicortexEXO-amd64-0.1.0-20260609.iso
 
 Itens planejados:
 
-* Interface gráfica própria.
-* Instalador simplificado.
-* Suporte completo a persistência.
-* Gerenciador de modelos.
-* Seleção de agente por tarefa.
-* Painel de logs.
-* Integração com RAG local.
-* Indexação de documentos.
-* Modo técnico para suporte.
-* Modo programação.
-* Modo segurança defensiva.
-* Modo offline completo.
-* Build automatizado por GitHub Actions.
-* Assinatura e verificação de ISO.
-* Documentação avançada.
+- interface gráfica própria;
+- instalador simplificado;
+- suporte completo a persistência;
+- gerenciador de modelos;
+- seleção de agente por tarefa;
+- painel de logs;
+- integração com RAG local;
+- indexação de documentos;
+- modo técnico para suporte;
+- modo programação;
+- modo segurança defensiva;
+- modo offline completo;
+- build automatizado por GitHub Actions;
+- assinatura e verificação de ISO;
+- documentação avançada.
 
 ---
 
@@ -1154,36 +964,33 @@ Itens planejados:
 
 Verifique:
 
-* Se o pendrive foi gravado corretamente.
-* Se o boot UEFI está habilitado.
-* Se Secure Boot está desativado.
-* Se a ISO foi baixada sem corromper.
-* Se o hash SHA256 confere.
+- se o pendrive foi gravado corretamente;
+- se o boot UEFI está habilitado;
+- se Secure Boot está desativado;
+- se a ISO foi baixada sem corromper;
+- se o hash SHA256 confere.
 
 ### O sistema inicia, mas a IA não responde
 
-Verifique:
-
 ```bash
 systemctl status ollama
+systemctl status multicortex-chat-ui
 ollama list
 curl http://localhost:11434
 ```
 
-### O modelo está muito lento
+### O modelo está lento
 
 Possíveis causas:
 
-* Pouca RAM.
-* Modelo grande demais.
-* Execução apenas por CPU.
-* Pendrive lento.
-* Falta de swap.
-* GPU não detectada.
+- pouca RAM;
+- modelo grande demais;
+- execução apenas por CPU;
+- pendrive lento;
+- falta de swap;
+- GPU não detectada.
 
 ### A GPU não aparece
-
-Verifique:
 
 ```bash
 lspci | grep -i nvidia
@@ -1193,8 +1000,6 @@ lsmod | grep nvidia
 
 ### Sem internet
 
-Verifique:
-
 ```bash
 ip a
 nmcli device
@@ -1202,36 +1007,70 @@ ping 8.8.8.8
 ping google.com
 ```
 
+### Erro `NOKEY` durante build
+
+Durante o build podem aparecer avisos:
+
+```text
+Header V3 RSA/SHA256 Signature ... NOKEY
+```
+
+No build realizado, esses avisos apareceram como `warning`, não como `ERROR`, e não impediram a geração da ISO.
+
+Mesmo assim, antes de distribuir publicamente, valide a origem dos repositórios e as chaves GPG.
+
+### Erro `baseMount() is obsolete`
+
+Comente ou remova:
+
+```bash
+baseMount
+baseCleanMount
+```
+
+### Erro `suseConfig() is obsolete`
+
+Comente ou remova:
+
+```bash
+suseConfig
+```
+
+### Erro `suseRemoveYaST() is obsolete`
+
+Comente ou remova:
+
+```bash
+suseRemoveYaST
+```
+
+### Erro `gconftool-2: No such file or directory`
+
+Comente os scripts legados:
+
+```bash
+sh /studio/configure_gdm_theme.sh
+sh /studio/configure_gnome_background.sh
+```
+
 ---
 
 ## Licença
 
-ALTERAR_AQUI: informe a licença correta do projeto.
+Este fork deve respeitar a licença do projeto original [`cabelo/multicortex-exo`](https://github.com/cabelo/multicortex-exo) e as licenças dos componentes utilizados, incluindo openSUSE, KIWI, Ollama, drivers NVIDIA e demais pacotes de terceiros.
 
-Exemplos comuns:
-
-```text
-MIT
-GPL-3.0
-Apache-2.0
-BSD-3-Clause
-```
-
-Se este projeto deriva de outro projeto, respeite a licença original.
+Antes de distribuir publicamente a ISO, revise as licenças dos pacotes incluídos e confirme se redistribuição de componentes proprietários está permitida no formato pretendido.
 
 ---
 
 ## Créditos
 
-Este projeto é um fork inspirado no conceito MultiCortex, adaptado para uma implementação própria chamada **multicortexEXO**.
-
-Créditos:
-
-* Projeto original: ALTERAR_AQUI
-* Fork e adaptações: ALTERAR_AQUI
-* Base Linux: Debian/Ubuntu
-* Ferramentas de IA: conforme backends utilizados
-* Comunidade open source
+- Projeto original: [`cabelo/multicortex-exo`](https://github.com/cabelo/multicortex-exo)
+- Fork e adaptações: **Aguinaldo Liesack Baptistini**
+- Base Linux: **openSUSE Leap 15.6**
+- Build da imagem: **KIWI NG**
+- IA local: **Ollama**
+- Drivers e componentes: respectivos autores, projetos e mantenedores
 
 ---
 
@@ -1241,4 +1080,4 @@ Este projeto está em desenvolvimento.
 
 Use em ambiente de teste antes de aplicar em produção. Revise scripts antes de executar comandos administrativos. Modelos de IA podem errar, sugerir comandos incorretos ou gerar respostas incompletas. O usuário continua responsável por validar qualquer ação executada no sistema.
 
-IA ajuda bastante, mas ainda não substitui o velho e confiável “ler o log com calma”.
+IA ajuda bastante, mas ainda não substitui o velho e confiável hábito de ler o log com calma.
