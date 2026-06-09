@@ -10,29 +10,38 @@ Este projeto é um **fork/adaptação técnica** do projeto original [`cabelo/mu
 
 - [Sobre o projeto](#sobre-o-projeto)
 - [Por que este fork foi criado](#por-que-este-fork-foi-criado)
+- [Resumo das atualizações realizadas](#resumo-das-atualizações-realizadas)
 - [O que foi gerado](#o-que-foi-gerado)
 - [Como o sistema funciona](#como-o-sistema-funciona)
 - [Arquitetura geral](#arquitetura-geral)
+- [Arquitetura recomendada](#arquitetura-recomendada)
 - [Requisitos para rodar a ISO](#requisitos-para-rodar-a-iso)
 - [Requisitos para compilar a ISO](#requisitos-para-compilar-a-iso)
 - [Como compilar a ISO](#como-compilar-a-iso)
+- [Scripts adicionados e funcionamento detalhado](#scripts-adicionados-e-funcionamento-detalhado)
+- [Comandos disponíveis dentro da ISO](#comandos-disponíveis-dentro-da-iso)
+- [Programas e componentes usados pelos scripts](#programas-e-componentes-usados-pelos-scripts)
+- [Serviços da ISO](#serviços-da-iso)
+- [API HTTP local](#api-http-local)
 - [Como testar a ISO](#como-testar-a-iso)
 - [Usuários e senhas padrão da ISO](#usuários-e-senhas-padrão-da-iso)
 - [Como gravar a ISO em pendrive](#como-gravar-a-iso-em-pendrive)
 - [Persistência de dados](#persistência-de-dados)
 - [Modelos de IA suportados](#modelos-de-ia-suportados)
+- [Como instalar modelos por perfil](#como-instalar-modelos-por-perfil)
 - [Funcionamento do multicortexEXO](#funcionamento-do-multicortexexo)
 - [Estrutura do repositório](#estrutura-do-repositório)
-- [Configuração](#configuração)
-- [Serviços](#serviços)
+- [Configuração KIWI](#configuração-kiwi)
 - [Logs e diagnóstico](#logs-e-diagnóstico)
-- [Publicação no GitHub](#publicação-no-github)
+- [Publicação no GitHub Releases](#publicação-no-github-releases)
+- [Validações realizadas](#validações-realizadas)
 - [Segurança](#segurança)
 - [Limitações conhecidas](#limitações-conhecidas)
 - [Roadmap](#roadmap)
 - [Troubleshooting](#troubleshooting)
 - [Licença](#licença)
 - [Créditos](#créditos)
+- [Aviso](#aviso)
 
 ---
 
@@ -120,6 +129,88 @@ Ao gerar a própria ISO, é possível saber exatamente:
 - como o ambiente é configurado.
 
 Como diz o velho método: primeiro entenda a máquina, depois deixe a máquina trabalhar.
+
+---
+
+
+## Resumo das atualizações realizadas
+
+Esta fase do fork transformou a ISO em um projeto mais organizado, auditável e operacional. Antes, o repositório estava focado principalmente na descrição KIWI e na geração da imagem. Agora ele possui scripts próprios para build, diagnóstico, operação dentro da ISO, documentação complementar e preparação para instalação de modelos por perfil.
+
+### Atualizações de repositório
+
+Foram adicionados ou atualizados:
+
+- `VERSION`, com a versão/build do projeto;
+- `.gitignore` reforçado para evitar commit de ISO, imagens, logs, chaves e modelos;
+- documentação complementar em `docs/`;
+- scripts de build em `scripts/build/`;
+- scripts de sistema em `scripts/system/`;
+- scripts de modelos em `scripts/models/`;
+- overlay KIWI em `suse/x86_64/suse-leap-15.6-JeOS/root/`;
+- comandos `multicortex-*` dentro da ISO via `/usr/local/bin`;
+- arquivo `/etc/multicortex-version` dentro da imagem;
+- mensagem `/etc/motd` com instruções rápidas;
+- aliases em `/etc/profile.d/multicortex.sh`;
+- serviço `multicortex-firstboot.service`;
+- bloco no `config.sh` para preparar diretórios, permissões e serviços.
+
+### Atualizações dentro da ISO
+
+A ISO passou a incluir estrutura para os comandos:
+
+```text
+multicortex-menu
+multicortex-status
+multicortex-models-light
+multicortex-models-medium
+multicortex-models-code
+multicortex-models-large
+multicortex-models-list
+```
+
+Esses comandos foram pensados para reduzir a necessidade de decorar caminhos longos. Em vez de procurar scripts manualmente, o usuário chama o comando direto no terminal. Coisa simples, do jeito que Unix sempre gostou: comando curto, função clara.
+
+### Atualizações de documentação
+
+Foram previstos os seguintes documentos:
+
+```text
+docs/BUILD.md
+docs/API.md
+docs/MODELOS.md
+docs/FULL_OFFLINE.md
+docs/SEGURANCA.md
+docs/build-environment-report.md
+```
+
+Cada arquivo tem uma função:
+
+- `BUILD.md`: explica como preparar o ambiente e gerar a ISO;
+- `API.md`: documenta o uso da API HTTP local do Ollama;
+- `MODELOS.md`: separa modelos por perfil de hardware e uso;
+- `FULL_OFFLINE.md`: explica a edição offline com SSD/NVMe;
+- `SEGURANCA.md`: reúne cuidados com senhas, SSH, API e dados sensíveis;
+- `build-environment-report.md`: registra informações do ambiente de build.
+
+### Commits desta fase
+
+```text
+9dc0987 Improve MultiCortex EXO tooling, docs and model profiles
+a5f35b8 Document MultiCortex EXO live ISO operation in README
+```
+
+### ISO validada nesta fase
+
+```text
+MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
+```
+
+SHA256:
+
+```text
+03c9de435287e76e602b8b7d6860e0cd46a6e307d54590c24d85735341fb483d
+```
 
 ---
 
@@ -239,6 +330,59 @@ multicortexEXO
     ├── Painel local
     └── Scripts de automação
 ```
+
+---
+
+
+## Arquitetura recomendada
+
+Não é recomendado embutir todos os modelos grandes diretamente na ISO base. Isso deixaria a imagem muito grande, mais lenta para gerar, mais difícil de testar e ruim para distribuir.
+
+A arquitetura recomendada fica dividida em três camadas.
+
+### 1. ISO Base
+
+A ISO Base contém:
+
+- openSUSE Leap 15.6;
+- descrição KIWI;
+- scripts de build;
+- scripts de diagnóstico;
+- Ollama, se disponível nos pacotes/configuração;
+- Web UI ou preparação para Web UI;
+- API local;
+- documentação;
+- comandos `multicortex-*`;
+- estrutura para instalar modelos posteriormente.
+
+Essa é a versão ideal para publicar no GitHub Releases.
+
+### 2. Model Pack
+
+O Model Pack é o conjunto de scripts que baixa modelos por perfil.
+
+Exemplos:
+
+```bash
+multicortex-models-light
+multicortex-models-medium
+multicortex-models-code
+multicortex-models-large
+```
+
+Assim, cada máquina instala apenas o que consegue rodar. Um notebook simples pode usar modelos leves; uma workstation com GPU pode usar modelos médios ou grandes.
+
+### 3. Full Offline SSD Edition
+
+A Full Offline SSD Edition é a versão pensada para ambiente sem internet.
+
+Nela, os modelos já ficam baixados em SSD/NVMe, normalmente em:
+
+```text
+/var/lib/ollama
+```
+
+Essa edição é recomendada para bancada técnica, campo, laboratório, cliente, demonstração controlada ou ambiente isolado.
 
 ---
 
@@ -450,6 +594,718 @@ Resultado esperado:
 
 ---
 
+
+## Scripts adicionados e funcionamento detalhado
+
+Esta seção explica cada script adicionado ou previsto nesta fase do fork.
+
+### Visão geral
+
+```text
+scripts/
+├── build/
+│   ├── check-build-env.sh
+│   ├── install-build-deps-opensuse.sh
+│   ├── clean-build.sh
+│   ├── build-iso.sh
+│   └── check-result.sh
+│
+├── system/
+│   ├── multicortex-status.sh
+│   └── multicortex-menu.sh
+│
+└── models/
+    ├── _ollama_common.sh
+    ├── install-light-models.sh
+    ├── install-medium-models.sh
+    ├── install-code-models.sh
+    ├── install-large-models.sh
+    └── list-installed-models.sh
+```
+
+> Observação: se algum script de `models/` ainda não existir no repositório local, ele deve ser adicionado antes de gerar uma ISO final com os comandos `multicortex-models-*`. Os links dentro da ISO apontam para `/opt/multicortex/scripts/models/`.
+
+---
+
+### `scripts/build/check-build-env.sh`
+
+#### Finalidade
+
+Verifica se o servidor de build está pronto para gerar a ISO com KIWI NG.
+
+#### Como executar
+
+```bash
+bash scripts/build/check-build-env.sh
+```
+
+#### O que ele verifica
+
+- diretório atual do projeto;
+- valor de `DESC_DIR`;
+- presença do `config.xml`;
+- presença do `config.sh`;
+- existência dos comandos essenciais;
+- versão do KIWI NG;
+- sistema operacional;
+- validade do XML;
+- sintaxe dos scripts Bash.
+
+#### Programas usados
+
+- `git`: controle de versão;
+- `bash`: interpretador dos scripts;
+- `curl`: testes HTTP;
+- `kiwi-ng`: geração da ISO;
+- `zypper`: pacotes openSUSE;
+- `xmllint`: validação XML;
+- `shellcheck`: análise estática de Bash;
+- `sudo`: execução com privilégio;
+- `sha256sum`: cálculo de hash;
+- `tee`: gravação de logs;
+- `find`: localização de arquivos;
+- `awk`, `sed`, `grep`: processamento de texto.
+
+#### Saída esperada
+
+```text
+KIWI (next generation) version 10.2.33
+OK: suse/x86_64/suse-leap-15.6-JeOS/config.xml
+OK: suse/x86_64/suse-leap-15.6-JeOS/config.sh
+Sintaxe dos scripts:
+OK
+```
+
+---
+
+### `scripts/build/install-build-deps-opensuse.sh`
+
+#### Finalidade
+
+Instala ou verifica dependências necessárias no openSUSE.
+
+#### Como executar
+
+```bash
+bash scripts/build/install-build-deps-opensuse.sh
+```
+
+#### O que ele faz
+
+- carrega `/etc/os-release`;
+- confirma se o sistema é openSUSE/SUSE;
+- executa `zypper refresh`;
+- instala dependências básicas;
+- verifica se `kiwi-ng` existe;
+- tenta instalar KIWI se necessário;
+- verifica `shellcheck`;
+- tenta instalar `ShellCheck`, quando disponível.
+
+#### Observação sobre KIWI
+
+Em alguns ambientes, o pacote instalado não aparece como `python3-kiwi`, mas o comando existe:
+
+```bash
+kiwi-ng --version
+command -v kiwi-ng
+```
+
+Se esses comandos funcionarem, o KIWI está disponível para o build.
+
+---
+
+### `scripts/build/clean-build.sh`
+
+#### Finalidade
+
+Remove a saída anterior do build e recria os diretórios limpos.
+
+#### Como executar
+
+```bash
+bash scripts/build/clean-build.sh
+```
+
+#### Variáveis usadas
+
+```bash
+TARGET_DIR="${TARGET_DIR:-$HOME/builds/out}"
+LOG_DIR="${LOG_DIR:-$HOME/builds/logs}"
+```
+
+#### Exemplo com caminhos fixos
+
+```bash
+TARGET_DIR=/home/hawk/builds/out \
+LOG_DIR=/home/hawk/builds/logs \
+bash scripts/build/clean-build.sh
+```
+
+---
+
+### `scripts/build/build-iso.sh`
+
+#### Finalidade
+
+Executa o build da ISO usando KIWI NG.
+
+#### Como executar
+
+```bash
+bash scripts/build/build-iso.sh
+```
+
+#### O que ele faz
+
+- define o diretório KIWI;
+- cria diretórios de saída;
+- cria diretório de logs;
+- monta um nome de log com data e hora;
+- detecta se precisa usar `sudo`;
+- executa `kiwi-ng --debug system build`;
+- salva toda a saída do build com `tee`.
+
+#### Variáveis usadas
+
+```bash
+DESC_DIR="${DESC_DIR:-suse/x86_64/suse-leap-15.6-JeOS}"
+TARGET_DIR="${TARGET_DIR:-$HOME/builds/out}"
+LOG_DIR="${LOG_DIR:-$HOME/builds/logs}"
+```
+
+#### Comando principal
+
+```bash
+kiwi-ng --debug system build \
+  --description "$(pwd)/$DESC_DIR" \
+  --target-dir "$TARGET_DIR"
+```
+
+---
+
+### `scripts/build/check-result.sh`
+
+#### Finalidade
+
+Localiza artefatos gerados e calcula SHA256 das ISOs.
+
+#### Como executar
+
+```bash
+bash scripts/build/check-result.sh
+```
+
+#### O que ele faz
+
+- procura arquivos `.iso`, `.img`, `.raw` e `.qcow2`;
+- lista os arquivos encontrados;
+- calcula o SHA256;
+- gera `SHA256SUMS`.
+
+#### Exemplo de resultado
+
+```text
+SHA256:
+03c9de435287e76e602b8b7d6860e0cd46a6e307d54590c24d85735341fb483d  MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
+```
+
+---
+
+### `scripts/system/multicortex-status.sh`
+
+#### Finalidade
+
+Mostra um diagnóstico geral do sistema dentro da ISO.
+
+#### Como executar dentro da ISO
+
+```bash
+multicortex-status
+```
+
+Ou diretamente:
+
+```bash
+/opt/multicortex/scripts/system/multicortex-status.sh
+```
+
+#### O que ele mostra
+
+- versão do MultiCortex;
+- hostname;
+- kernel;
+- arquitetura;
+- versão do openSUSE;
+- IPs locais;
+- URLs prováveis da API e Web UI;
+- status dos serviços;
+- resposta da API do Ollama;
+- modelos instalados;
+- CPU;
+- RAM;
+- disco;
+- GPU NVIDIA, se houver;
+- logs recentes do Ollama.
+
+#### Programas usados
+
+- `hostname`: nome da máquina;
+- `uname`: kernel e arquitetura;
+- `ip`: endereços de rede;
+- `systemctl`: status dos serviços;
+- `curl`: teste da API Ollama;
+- `jq`: formatação opcional do JSON;
+- `ollama`: listagem de modelos;
+- `lscpu`: informações de CPU;
+- `free`: uso de memória;
+- `df`: uso de disco;
+- `nvidia-smi`: GPU NVIDIA;
+- `journalctl`: logs dos serviços.
+
+---
+
+### `scripts/system/multicortex-menu.sh`
+
+#### Finalidade
+
+Fornece um menu interativo para operação básica do sistema.
+
+#### Como executar dentro da ISO
+
+```bash
+multicortex-menu
+```
+
+Ou diretamente:
+
+```bash
+/opt/multicortex/scripts/system/multicortex-menu.sh
+```
+
+#### Opções do menu
+
+```text
+1. Ver status
+2. Iniciar Ollama
+3. Parar Ollama
+4. Reiniciar Ollama
+5. Iniciar Web UI
+6. Parar Web UI
+7. Reiniciar Web UI
+8. Listar modelos
+9. Instalar modelos leves
+10. Instalar modelos médios
+11. Instalar modelos de código
+12. Instalar modelos grandes
+13. Testar API
+14. Mostrar IPs e URLs
+15. Sair
+```
+
+#### O que ele controla
+
+- `ollama.service`;
+- `multicortex-chat-ui.service`;
+- `open-webui.service`;
+- scripts `multicortex-models-*`;
+- teste HTTP da API do Ollama.
+
+---
+
+### `scripts/models/_ollama_common.sh`
+
+#### Finalidade
+
+Arquivo auxiliar usado pelos scripts de instalação/listagem de modelos.
+
+Normalmente ele não é executado diretamente. Ele é carregado pelos outros scripts com `source`.
+
+#### Funções principais
+
+```text
+log()
+warn()
+fail()
+have()
+start_ollama_if_needed()
+pull_model()
+pull_profile()
+list_models()
+```
+
+#### Variável principal
+
+```bash
+OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
+```
+
+#### Como ele inicia o Ollama
+
+1. testa `http://127.0.0.1:11434/api/tags`;
+2. tenta `systemctl start ollama.service`;
+3. se necessário, tenta `nohup ollama serve`.
+
+---
+
+### `scripts/models/install-light-models.sh`
+
+#### Finalidade
+
+Instala modelos leves.
+
+#### Como executar
+
+```bash
+multicortex-models-light
+```
+
+#### Modelos previstos
+
+```text
+tinyllama:latest
+phi3:mini
+gemma3:1b
+qwen3:0.6b
+smollm2:1.7b
+```
+
+#### Perfil recomendado
+
+```text
+RAM: 8 GB a 16 GB
+GPU: opcional
+Uso: VM, notebook simples, testes rápidos
+```
+
+---
+
+### `scripts/models/install-medium-models.sh`
+
+#### Finalidade
+
+Instala modelos médios.
+
+#### Como executar
+
+```bash
+multicortex-models-medium
+```
+
+#### Modelos previstos
+
+```text
+llama3.1:8b
+llama3.2:3b
+mistral:7b
+qwen3:8b
+gemma3:4b
+qwen2.5:7b
+```
+
+#### Perfil recomendado
+
+```text
+RAM: 16 GB a 32 GB
+GPU: 8 GB a 12 GB de VRAM recomendada
+Uso: chat local, análise de texto, suporte e automação
+```
+
+---
+
+### `scripts/models/install-code-models.sh`
+
+#### Finalidade
+
+Instala modelos especializados em programação.
+
+#### Como executar
+
+```bash
+multicortex-models-code
+```
+
+#### Modelos previstos
+
+```text
+deepseek-coder:1.3b
+deepseek-coder:6.7b
+qwen2.5-coder:7b
+codegemma:7b
+starcoder2:7b
+```
+
+---
+
+### `scripts/models/install-large-models.sh`
+
+#### Finalidade
+
+Instala modelos grandes.
+
+#### Como executar
+
+```bash
+multicortex-models-large
+```
+
+#### Modelos previstos
+
+```text
+llama3.1:70b
+llama3.3:70b
+qwen2.5:32b
+qwen3:32b
+mixtral:8x7b
+deepseek-r1:32b
+```
+
+#### Atenção
+
+Este perfil exige muito disco, RAM, tempo de download e, preferencialmente, GPU forte.
+
+---
+
+### `scripts/models/list-installed-models.sh`
+
+#### Finalidade
+
+Lista os modelos instalados no Ollama.
+
+#### Como executar
+
+```bash
+multicortex-models-list
+```
+
+#### O que ele usa
+
+- `ollama list`;
+- `curl http://127.0.0.1:11434/api/tags`.
+
+---
+
+## Comandos disponíveis dentro da ISO
+
+Os comandos são expostos em:
+
+```text
+/usr/local/bin/
+```
+
+### Comandos principais
+
+```bash
+multicortex-menu
+multicortex-status
+multicortex-models-light
+multicortex-models-medium
+multicortex-models-code
+multicortex-models-large
+multicortex-models-list
+```
+
+### Atalhos de shell
+
+O arquivo `/etc/profile.d/multicortex.sh` cria aliases:
+
+```bash
+mc-status
+mc-menu
+mc-models
+```
+
+Equivalências:
+
+```text
+mc-status -> multicortex-status
+mc-menu   -> multicortex-menu
+mc-models -> multicortex-models-list
+```
+
+---
+
+## Programas e componentes usados pelos scripts
+
+### `bash`
+
+Interpretador dos scripts `.sh`.
+
+### `kiwi-ng`
+
+Ferramenta que gera a ISO Live a partir da descrição KIWI.
+
+### `zypper`
+
+Gerenciador de pacotes do openSUSE.
+
+### `xmllint`
+
+Valida o `config.xml`.
+
+### `shellcheck`
+
+Analisa scripts Bash e aponta problemas comuns.
+
+### `git`
+
+Controle de versão do projeto.
+
+### `curl`
+
+Testa endpoints HTTP, especialmente a API do Ollama.
+
+### `jq`
+
+Formata respostas JSON.
+
+### `systemctl`
+
+Inicia, para, reinicia e consulta serviços systemd.
+
+### `journalctl`
+
+Consulta logs de serviços.
+
+### `ollama`
+
+Gerencia e executa modelos locais.
+
+Exemplos:
+
+```bash
+ollama list
+ollama pull llama3.1:8b
+ollama run llama3.1:8b
+```
+
+### `nvidia-smi`
+
+Mostra informações de GPU NVIDIA, quando disponível.
+
+### `ip`
+
+Mostra endereços de rede.
+
+### `free`
+
+Mostra uso de RAM.
+
+### `df`
+
+Mostra uso de disco.
+
+---
+
+## Serviços da ISO
+
+### `ollama.service`
+
+Serviço da API e execução local de modelos.
+
+```bash
+systemctl status ollama
+systemctl start ollama
+systemctl restart ollama
+systemctl stop ollama
+```
+
+### `multicortex-chat-ui.service`
+
+Serviço previsto para a interface Web local do MultiCortex.
+
+```bash
+systemctl status multicortex-chat-ui
+systemctl start multicortex-chat-ui
+systemctl restart multicortex-chat-ui
+systemctl stop multicortex-chat-ui
+```
+
+URL provável:
+
+```text
+http://127.0.0.1:3000
+```
+
+### `open-webui.service`
+
+Serviço previsto para Open WebUI, caso esteja instalado/configurado.
+
+```bash
+systemctl status open-webui
+systemctl start open-webui
+systemctl restart open-webui
+systemctl stop open-webui
+```
+
+URL provável:
+
+```text
+http://127.0.0.1:8080
+```
+
+### `multicortex-firstboot.service`
+
+Serviço adicionado para preparar diretórios no boot.
+
+Ele cria ou ajusta:
+
+```text
+/var/lib/ollama
+/var/log/multicortex
+```
+
+Verificar:
+
+```bash
+systemctl status multicortex-firstboot
+```
+
+---
+
+## API HTTP local
+
+O endpoint principal do Ollama é:
+
+```text
+http://127.0.0.1:11434
+```
+
+### Listar modelos
+
+```bash
+curl http://127.0.0.1:11434/api/tags
+```
+
+### Gerar texto
+
+```bash
+curl http://127.0.0.1:11434/api/generate \
+  -d '{
+    "model": "llama3.1:8b",
+    "prompt": "Explique o que é o MultiCortex EXO em português.",
+    "stream": false
+  }'
+```
+
+### Chat
+
+```bash
+curl http://127.0.0.1:11434/api/chat \
+  -d '{
+    "model": "llama3.1:8b",
+    "messages": [
+      {"role": "user", "content": "Resuma o sistema em 5 linhas."}
+    ],
+    "stream": false
+  }'
+```
+
+### Segurança da API
+
+Mantenha a API em `127.0.0.1`. Para acesso remoto, use VPN, túnel SSH, proxy autenticado ou firewall.
+
+---
+
 ## Como testar a ISO
 
 ### VMware
@@ -641,6 +1497,72 @@ Modelos especializados em código
 
 ---
 
+
+## Como instalar modelos por perfil
+
+Os modelos são instalados via Ollama. Antes de instalar, confirme se o Ollama está ativo:
+
+```bash
+systemctl status ollama
+curl http://127.0.0.1:11434/api/tags
+```
+
+### Perfil leve
+
+```bash
+multicortex-models-light
+```
+
+Uso recomendado:
+
+```text
+VMs, notebooks simples, testes rápidos, 8 GB a 16 GB de RAM.
+```
+
+### Perfil médio
+
+```bash
+multicortex-models-medium
+```
+
+Uso recomendado:
+
+```text
+PCs com 16 GB a 32 GB de RAM, GPU opcional, uso diário local.
+```
+
+### Perfil código
+
+```bash
+multicortex-models-code
+```
+
+Uso recomendado:
+
+```text
+Programação, scripts, análise técnica, automação e suporte.
+```
+
+### Perfil grande
+
+```bash
+multicortex-models-large
+```
+
+Uso recomendado:
+
+```text
+Workstations, servidores, SSD/NVMe, muita RAM e GPU forte.
+```
+
+### Listar modelos
+
+```bash
+multicortex-models-list
+```
+
+---
+
 ## Funcionamento do multicortexEXO
 
 O multicortexEXO é a camada lógica do sistema. Ele organiza a execução da IA em múltiplos núcleos funcionais.
@@ -725,36 +1647,59 @@ Exemplos:
 
 ## Estrutura do repositório
 
-Estrutura recomendada do fork:
+Estrutura atual/recomendada do fork:
 
 ```text
 multicortexEXO_fork/
 ├── README.md
+├── VERSION
 ├── .gitignore
 ├── docs/
-│   ├── documentacao_multicortex_exo_bootable_opensuse.md
-│   └── documentacao_multicortex_exo_bootable_opensuse.docx
+│   ├── API.md
+│   ├── BUILD.md
+│   ├── FULL_OFFLINE.md
+│   ├── MODELOS.md
+│   ├── SEGURANCA.md
+│   └── build-environment-report.md
 │
 ├── scripts/
-│   └── gerar_iso_multicortex_completo_py36.py
-│
-├── patches/
-│   └── notas-build-opensuse-leap-15.6.md
-│
-├── releases/
-│   └── MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso.sha256
+│   ├── build/
+│   │   ├── check-build-env.sh
+│   │   ├── install-build-deps-opensuse.sh
+│   │   ├── clean-build.sh
+│   │   ├── build-iso.sh
+│   │   └── check-result.sh
+│   │
+│   ├── system/
+│   │   ├── multicortex-status.sh
+│   │   └── multicortex-menu.sh
+│   │
+│   └── models/
+│       ├── _ollama_common.sh
+│       ├── install-light-models.sh
+│       ├── install-medium-models.sh
+│       ├── install-code-models.sh
+│       ├── install-large-models.sh
+│       └── list-installed-models.sh
 │
 └── suse/
     └── x86_64/
         └── suse-leap-15.6-JeOS/
             ├── config.xml
             ├── config.sh
-            └── demais arquivos KIWI
+            └── root/
+                ├── etc/
+                │   ├── motd
+                │   ├── multicortex-version
+                │   ├── profile.d/multicortex.sh
+                │   └── systemd/system/multicortex-firstboot.service
+                ├── opt/multicortex/scripts/
+                └── usr/local/bin/multicortex-*
 ```
 
 ---
 
-## Configuração
+## Configuração KIWI
 
 Arquivo principal do build:
 
@@ -774,6 +1719,83 @@ Serviços ativados no `config.sh`:
 sshd
 ollama
 multicortex-chat-ui
+```
+
+---
+
+
+### Overlay `root/`
+
+O diretório abaixo é usado pelo KIWI para inserir arquivos dentro da ISO:
+
+```text
+suse/x86_64/suse-leap-15.6-JeOS/root/
+```
+
+Exemplos de arquivos inseridos:
+
+```text
+/etc/motd
+/etc/multicortex-version
+/etc/profile.d/multicortex.sh
+/etc/systemd/system/multicortex-firstboot.service
+/opt/multicortex/scripts/system/multicortex-status.sh
+/opt/multicortex/scripts/system/multicortex-menu.sh
+/usr/local/bin/multicortex-status
+/usr/local/bin/multicortex-menu
+```
+
+### Bloco adicionado ao `config.sh`
+
+O `config.sh` passou a preparar o ambiente MultiCortex durante o build:
+
+- cria `/var/lib/ollama`;
+- cria `/var/log/multicortex`;
+- ajusta permissões dos scripts;
+- habilita `multicortex-firstboot.service`;
+- tenta habilitar `ollama.service`;
+- tenta habilitar `multicortex-chat-ui.service`;
+- tenta habilitar `open-webui.service`;
+- ajusta permissão do `/etc/motd`.
+
+### Arquivo de versão
+
+Na raiz do repositório:
+
+```text
+VERSION
+```
+
+Dentro da ISO:
+
+```text
+/etc/multicortex-version
+```
+
+### Mensagem de login
+
+Dentro da ISO:
+
+```text
+/etc/motd
+```
+
+Essa mensagem mostra comandos úteis e lembra as credenciais padrão.
+
+### Aliases
+
+Dentro da ISO:
+
+```text
+/etc/profile.d/multicortex.sh
+```
+
+Aliases previstos:
+
+```bash
+alias mc-status='multicortex-status'
+alias mc-menu='multicortex-menu'
+alias mc-models='multicortex-models-list'
 ```
 
 ---
@@ -839,125 +1861,136 @@ ollama run llama3
 
 ---
 
-## Publicação no GitHub
 
-### Criar pasta local do fork
+## Publicação no GitHub Releases
+
+A ISO não deve ser enviada em commit Git. Ela deve ser publicada como asset em uma release.
+
+### Conferir ISO e SHA
 
 ```bash
-cd /home/hawk
+ISO="/root/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso"
+SHA="/root/builds/out/SHA256SUMS"
 
-rm -rf /home/hawk/multicortexEXO_fork
-mkdir -p /home/hawk/multicortexEXO_fork
+ls -lh "$ISO"
+cat "$SHA"
+sha256sum "$ISO"
 ```
 
-Copiar o conteúdo original sem o `.git`:
+### Verificar GitHub CLI
 
 ```bash
-rsync -a   --exclude='.git'   /home/hawk/builds/multicortex-exo/   /home/hawk/multicortexEXO_fork/
+command -v gh || zypper install -y gh
+gh --version
 ```
 
-Copiar arquivos corrigidos:
+### Login
 
 ```bash
-cp -a /home/hawk/builds/kiwi-desc/config.xml   /home/hawk/multicortexEXO_fork/suse/x86_64/suse-leap-15.6-JeOS/config.xml
-
-cp -a /home/hawk/builds/kiwi-desc/config.sh   /home/hawk/multicortexEXO_fork/suse/x86_64/suse-leap-15.6-JeOS/config.sh
+gh auth login
+gh auth status
 ```
 
-Criar estrutura auxiliar:
+### Criar release
 
 ```bash
-mkdir -p /home/hawk/multicortexEXO_fork/scripts
-mkdir -p /home/hawk/multicortexEXO_fork/docs
-mkdir -p /home/hawk/multicortexEXO_fork/patches
-mkdir -p /home/hawk/multicortexEXO_fork/releases
+TAG="v1.0.5-exo-20260609"
+
+gh release create "$TAG" \
+  "$ISO" \
+  "$SHA" \
+  --repo hawkinf/multicortexEXO_fork \
+  --title "MultiCortex EXO 1.0.5 Live ISO" \
+  --notes "ISO Linux Live baseada em openSUSE Leap 15.6 x86_64, gerada com KIWI NG, com scripts MultiCortex, diagnóstico, menu, API local e perfis de modelos." \
+  --latest
 ```
 
-Copiar script de build:
+### Conferir release
 
 ```bash
-cp -a /home/hawk/gerar_iso_multicortex_completo_py36.py   /home/hawk/multicortexEXO_fork/scripts/
+gh release view "$TAG" --repo hawkinf/multicortexEXO_fork
+gh release list --repo hawkinf/multicortexEXO_fork
 ```
 
-Gerar checksum:
+### Atualizar assets de uma release existente
 
 ```bash
-sha256sum /home/hawk/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso   > /home/hawk/multicortexEXO_fork/releases/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso.sha256
+gh release upload "$TAG" \
+  "$ISO" \
+  "$SHA" \
+  --repo hawkinf/multicortexEXO_fork \
+  --clobber
 ```
 
-### Criar `.gitignore`
+---
+
+
+## Validações realizadas
+
+### Ambiente de build
 
 ```bash
-cd /home/hawk/multicortexEXO_fork
-
-cat > .gitignore <<'EOF'
-out/
-build/
-image-root/
-*.iso
-*.raw
-*.qcow2
-*.img
-*.vmdk
-*.log
-.cache/
-__pycache__/
-*.pyc
-*.tmp
-*.bak
-*.bak2
-*~
-EOF
+bash scripts/build/check-build-env.sh
 ```
 
-### Inicializar Git
+Resultado validado:
 
-```bash
-cd /home/hawk/multicortexEXO_fork
-
-git init
-git branch -M main
-git config user.name "Aguinaldo"
-git config user.email "hawkinf@gmail.com"
+```text
+kiwi-ng: /usr/bin/kiwi-ng
+xmllint: /usr/bin/xmllint
+shellcheck: /usr/bin/shellcheck
+config.xml: OK
+config.sh: OK
+scripts: OK
 ```
 
-### Commit inicial
+### Sintaxe Bash
 
 ```bash
-git add .
-git commit -m "Initial MultiCortex EXO fork with KIWI 10 compatibility"
+bash -n scripts/models/*.sh
+bash -n scripts/system/*.sh
+bash -n scripts/build/*.sh
 ```
 
-### Criar repositório no GitHub
+Resultado: sem erros.
+
+### ShellCheck
 
 ```bash
-gh repo create hawkinf/multicortexEXO_fork   --public   --source=.   --remote=origin   --push
+shellcheck scripts/models/*.sh scripts/system/*.sh scripts/build/*.sh
 ```
 
-Para privado:
+Resultado: sem avisos após ajustes.
+
+### XML
 
 ```bash
-gh repo create hawkinf/multicortexEXO_fork   --private   --source=.   --remote=origin   --push
+xmllint --noout suse/x86_64/suse-leap-15.6-JeOS/config.xml
 ```
 
-### Se o repositório já existir
+Resultado: sem erros.
+
+### Git
 
 ```bash
-cd /home/hawk/multicortexEXO_fork
-
-git remote remove origin 2>/dev/null || true
-git remote add origin https://github.com/hawkinf/multicortexEXO_fork.git
-git push -u origin main
+git diff --check
+git status -sb
 ```
 
-### Publicar ISO em GitHub Release
+Resultado: sem problemas de whitespace; alterações commitadas e enviadas para `origin/main`.
 
-A ISO não deve ser enviada no commit Git. Ela deve ser publicada como asset de release.
+### Build
 
 ```bash
-cd /home/hawk/multicortexEXO_fork
+bash scripts/build/build-iso.sh
+bash scripts/build/check-result.sh
+```
 
-gh release create v1.0.5-leap15.6   /home/hawk/builds/out/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso   /home/hawk/multicortexEXO_fork/releases/MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso.sha256   --title "MultiCortex EXO 1.0.5 - openSUSE Leap 15.6 x86_64"   --notes "ISO bootável do MultiCortex EXO baseada em openSUSE Leap 15.6, arquitetura x86_64. Gerada com ajustes de compatibilidade para KIWI 10.x."
+Resultado:
+
+```text
+MultiCortex_EXO_1.0.5.x86_64-1.15.6.iso
+SHA256: 03c9de435287e76e602b8b7d6860e0cd46a6e307d54590c24d85735341fb483d
 ```
 
 ---
@@ -1158,56 +2191,3 @@ Use em ambiente de teste antes de aplicar em produção. Revise scripts antes de
 
 IA ajuda bastante, mas ainda não substitui o velho e confiável hábito de ler o log com calma.
 
-<!-- BEGIN MULTICORTEX EXO GENERATED README SECTION -->
-
-## MultiCortex EXO Fork - operação da ISO Live
-
-Este fork prepara uma ISO Linux Live baseada em openSUSE Leap 15.6 x86_64, gerada com KIWI NG, com foco em IA local, Ollama, Web UI, API HTTP, perfis de modelos e uso em ambiente offline/controlado.
-
-### Usuários e senhas padrão da ISO
-
-- root / linux
-- tux / linux
-
-Essas senhas aparecem no `config.xml` em formato de hash Unix `md5-crypt`. Hash não é reversível; ele apenas valida a senha durante o login.
-
-Antes de usar SSH, rede ou publicar uma ISO final, troque as senhas com:
-
-- `passwd root`
-- `passwd tux`
-- `openssl passwd -1`
-
-### Comandos principais dentro da ISO
-
-- `multicortex-menu`
-- `multicortex-status`
-- `multicortex-models-light`
-- `multicortex-models-medium`
-- `multicortex-models-code`
-- `multicortex-models-large`
-- `multicortex-models-list`
-
-### Arquitetura recomendada
-
-A ISO base deve continuar enxuta. O desenho recomendado é:
-
-1. ISO Base: openSUSE Leap 15.6, Ollama, Web UI/API, scripts, diagnóstico e documentação.
-2. Model Pack: scripts para baixar modelos por perfil.
-3. Full Offline SSD Edition: SSD/NVMe com `/var/lib/ollama` já populado.
-
-### Build rápido
-
-- `bash scripts/build/check-build-env.sh`
-- `bash scripts/build/clean-build.sh`
-- `bash scripts/build/build-iso.sh`
-- `bash scripts/build/check-result.sh`
-
-### Documentação complementar
-
-- `docs/BUILD.md`
-- `docs/API.md`
-- `docs/MODELOS.md`
-- `docs/FULL_OFFLINE.md`
-- `docs/SEGURANCA.md`
-
-<!-- END MULTICORTEX EXO GENERATED README SECTION -->
