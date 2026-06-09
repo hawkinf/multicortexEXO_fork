@@ -1157,3 +1157,57 @@ Este projeto está em desenvolvimento.
 Use em ambiente de teste antes de aplicar em produção. Revise scripts antes de executar comandos administrativos. Modelos de IA podem errar, sugerir comandos incorretos ou gerar respostas incompletas. O usuário continua responsável por validar qualquer ação executada no sistema.
 
 IA ajuda bastante, mas ainda não substitui o velho e confiável hábito de ler o log com calma.
+
+<!-- BEGIN MULTICORTEX EXO GENERATED README SECTION -->
+
+## MultiCortex EXO Fork - operação da ISO Live
+
+Este fork prepara uma ISO Linux Live baseada em openSUSE Leap 15.6 x86_64, gerada com KIWI NG, com foco em IA local, Ollama, Web UI, API HTTP, perfis de modelos e uso em ambiente offline/controlado.
+
+### Usuários e senhas padrão da ISO
+
+- root / linux
+- tux / linux
+
+Essas senhas aparecem no `config.xml` em formato de hash Unix `md5-crypt`. Hash não é reversível; ele apenas valida a senha durante o login.
+
+Antes de usar SSH, rede ou publicar uma ISO final, troque as senhas com:
+
+- `passwd root`
+- `passwd tux`
+- `openssl passwd -1`
+
+### Comandos principais dentro da ISO
+
+- `multicortex-menu`
+- `multicortex-status`
+- `multicortex-models-light`
+- `multicortex-models-medium`
+- `multicortex-models-code`
+- `multicortex-models-large`
+- `multicortex-models-list`
+
+### Arquitetura recomendada
+
+A ISO base deve continuar enxuta. O desenho recomendado é:
+
+1. ISO Base: openSUSE Leap 15.6, Ollama, Web UI/API, scripts, diagnóstico e documentação.
+2. Model Pack: scripts para baixar modelos por perfil.
+3. Full Offline SSD Edition: SSD/NVMe com `/var/lib/ollama` já populado.
+
+### Build rápido
+
+- `bash scripts/build/check-build-env.sh`
+- `bash scripts/build/clean-build.sh`
+- `bash scripts/build/build-iso.sh`
+- `bash scripts/build/check-result.sh`
+
+### Documentação complementar
+
+- `docs/BUILD.md`
+- `docs/API.md`
+- `docs/MODELOS.md`
+- `docs/FULL_OFFLINE.md`
+- `docs/SEGURANCA.md`
+
+<!-- END MULTICORTEX EXO GENERATED README SECTION -->
