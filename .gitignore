@@ -1,0 +1,23 @@
+# KIWI build output
+out/
+build/
+image-root/
+*.iso
+*.raw
+*.qcow2
+*.img
+*.vmdk
+
+# Logs grandes
+*.log
+
+# Cache
+.cache/
+__pycache__/
+*.pyc
+
+# Temporários
+*.tmp
+*.bak
+*.bak2
+*~
